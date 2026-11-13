@@ -471,6 +471,14 @@ try {
 
     if ($pending.Count -eq 0) {
         Write-Section '沒有需要套用的變更'
+        # 仍然記錄「已驗證為相同」的檔案維湊，讓下次儲存庫更新時能判定為安全更新。
+        if ($Apply) {
+            foreach ($item in @($plan | Where-Object { $_.Status -eq 'same' })) {
+                $ledger[$item.RepoRel] = $item.LiveHash
+            }
+            Save-LedgerEntries -PiHomePath $pi -Entries $ledger
+            Write-InfoLine '已更新本機套用紀錄（無檔案變更）'
+        }
         exit 0
     }
 
@@ -529,6 +537,10 @@ try {
         $ledger[$item.RepoRel] = Get-NormalizedHash $item.LivePath
         Write-OkLine ("{0} -> {1}" -f $item.RepoRel, $item.PiRel)
         $applied++
+    }
+    # 沒變動的檔案也記入套用紀錄，代表「此本機狀態等同儲存庫狀態」。
+    foreach ($item in @($plan | Where-Object { $_.Status -eq 'same' })) {
+        $ledger[$item.RepoRel] = $item.LiveHash
     }
 
     # --- settings.json 套件合併 ---------------------------------------------

@@ -210,6 +210,11 @@ pwsh -File scripts\apply.ps1 -Restore -RestoreFrom "$env:LOCALAPPDATA\pi-config\
 | 目標不同，且與上次套用不同 | 衝突（本機已修改） |
 | 目標存在但沒有套用紀錄 | 衝突（非本專案管理） |
 
+沒有變更的檔案也會記入套用紀錄（代表「本機狀態等同儲存庫」），
+所以之後儲存庫更新時會被判定為安全更新，而不是衝突。
+紀錄遺失（例如清掉 `$env:LOCALAPPDATA\pi-config`）不會刪除任何設定，
+只會讓下次套用對「內容不同」的檔案改為要求確認。
+
 ### `scripts/verify.ps1`
 
 | 參數 | 說明 |
