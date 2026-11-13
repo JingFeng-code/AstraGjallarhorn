@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "pi": {
+    "package": "@earendil-works/pi-coding-agent",
+    "version": "1.5.2",
+    "compatible": "1.5.x"
+  },
+  "packages": [
+    {
+      "name": "pi-agnes-tools",
+      "version": "0.3.7",
+      "pin": "npm:pi-agnes-tools@0.3.7",
+      "source": "npm:pi-agnes-tools"
+    },
+    {
+      "name": "pi-ollama-cloud",
+      "version": "0.13.1",
+      "pin": "npm:pi-ollama-cloud@0.13.1",
+      "source": "npm:pi-ollama-cloud"
+    }
+  ],
+  "excluded": [
+    "pi-profile-switch（Windows 相容性問題，已改用 extensions/mode-switch.ts，不安裝）"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "note": "僅記錄 Provider 名稱，用於驗證認證未被同步流程破壞；不含任何憑證內容。",
+  "providers": [
+    "agnes",
+    "nvidia",
+    "ollama-cloud"
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "name": "pi-config",
+  "description": "Pi Agent 可攜設定：mode-switch 擴充功能、深度執行模式、DeepSeek Stack Skills、套件清單。",
+  "piHomeRelativeToUserHome": ".pi",
+  "agentDirName": "agent",
+  "modes": [
+    "default",
+    "deep-execution"
+  ],
+  "modeStateFile": "agent/mode-state.json",
+  "deepExecution": {
+    "instructions": "modes/deep-execution/instructions.md",
+    "skillsDir": "modes/deep-execution/skills",
+    "modeSwitchExtension": "agent/extensions/mode-switch.ts",
+    "requiredSkills": [
+      "ds-context-reset",
+      "ds-help",
+      "ds-ledger",
+      "ds-mode",
+      "ds-plan-loop",
+      "ds-unstick",
+      "ds-verify-loop"
+    ],
+    "skillPrefix": "ds-",
+    "shortcut": "alt+m"
+  },
+  "entries": [
+    {
+      "type": "file",
+      "source": "agent/extensions/mode-switch.ts",
+      "target": "extensions/mode-switch.ts",
+      "note": "自訂模式切換擴充功能（取代無法在 Windows 運作的 pi-profile-switch）"
+    },
+    {
+      "type": "file",
+      "source": "modes/README.md",
+      "target": "modes/README.md",
+      "note": "模式使用說明與還原步驟"
+    },
+    {
+      "type": "file",
+      "source": "modes/deep-execution/instructions.md",
+      "target": "modes/deep-execution/instructions.md",
+      "note": "深度執行模式工作規則（每回合附加到系統提示）"
+    },
+    {
+      "type": "file",
+      "source": "modes/deep-execution/deepseek-stack-LICENSE",
+      "target": "modes/deep-execution/deepseek-stack-LICENSE",
+      "note": "deepseek-stack MIT 授權文件"
+    },
+    {
+      "type": "tree",
+      "source": "modes/deep-execution/skills",
+      "target": "modes/deep-execution/skills",
+      "note": "DeepSeek Stack 7 個 ds-* Skills（不在 Pi 自動掃描目錄）"
+    }
+  ],
+  "excludeNames": [
+    "node_modules",
+    ".git",
+    "$RECYCLE.BIN",
+    "System Volume Information"
+  ],
+  "sensitiveNames": [
+    "auth.json",
+    "credentials.json",
+    "mode-state.json",
+    "models-store.json",
+    "trust.json",
+    "keybindings.json",
+    ".netrc",
+    ".npmrc"
+  ],
+  "autoSkillDirs": {
+    "piHome": [
+      "agent/skills",
+      "skills"
+    ],
+    "userHome": [
+      ".agents/skills"
+    ]
+  }
+}

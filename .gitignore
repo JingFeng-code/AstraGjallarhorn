@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# pi-config 只保存「可跨電腦重建」的設定。憑證與機器狀態永遠不進版控。
+# ---------------------------------------------------------------------------
+
+# 憑證與密鑰（即使出現在子目錄也排除）
+auth.json
+**/auth.json
+credentials.json
+**/credentials.json
+.netrc
+.npmrc
+*.token
+*.secret
+*.pem
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+
+# 機器狀態 / 快取 / 執行期資料
+mode-state.json
+**/mode-state.json
+models-store.json
+**/models-store.json
+trust.json
+**/trust.json
+sessions/
+**/sessions/
+logs/
+**/logs/
+tmp/
+**/tmp/
+cache/
+**/cache/
+node_modules/
+**/node_modules/
+
+# 備份與暫存
+*.bak
+*.orig
+*.rej
+.backups/
+.backup/
+_scratch/
+_scratch/
+
+# 作業系統 / 編輯器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
