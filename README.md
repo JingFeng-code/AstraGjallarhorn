@@ -13,6 +13,8 @@ Pi Agent 的可攜設定同步專案：把「跨電腦可重建」的設定放�
 | 目錄 | 內容 | 對應本機路徑（相對於 Pi 家目錄） |
 |---|---|---|
 | `extensions/mode-switch.ts` | 兩種工作模式的擴充功能（Alt+M 切換） | `agent/extensions/mode-switch.ts` |
+| `agent/AGENTS.md` | Pi 全域工作規則（一般模式與深度執行模式都會生效） | `agent/AGENTS.md` |
+| `agent/prompts/` | Pi prompt templates：`verify`、`commit`、`review` | `agent/prompts/` |
 | `modes/README.md` | 模式使用說明與還原步驟 | `modes/README.md` |
 | `modes/deep-execution/instructions.md` | 深度執行模式工作規則 | `modes/deep-execution/instructions.md` |
 | `modes/deep-execution/skills/ds-*/` | DeepSeek Stack 7 個 Skills | `modes/deep-execution/skills/` |
@@ -41,6 +43,14 @@ Pi 若設定了 `PI_CODING_AGENT_DIR`，請以 `-PiHome` 指定實際的 Pi 家�
 - `.gitignore` 只是第二道防線；`export.ps1` 會在寫入前**主動掃描憑證樣式並中止**。
 
 > `pi-profile-switch` 在本機 Windows 環境無法正常運作，已改用 `mode-switch.ts`，不列入必要套件。
+
+### 為什麼 `settings.json` 不同步
+
+`settings.json` 含 `defaultProvider`、`defaultModel`、`defaultThinkingLevel`、`defaultTools`，以及 Pi 自動寫入的 changelog／裝置狀態；它會隨 `/model`、`/thinking`、`Ctrl+S` 頻繁變動。
+
+本專案**不把 `settings.json` 列入同步 entries**；`apply.ps1` 只在套件缺少時補上 `packages` 宣告，不覆寫模型、thinking、工具或其他設定。
+
+若日後要同步模型預設，請另建 `settings.template.json` 與 merge 腳本，只合併指定的可攜欄位，不要直接同步 raw `settings.json`。
 
 ---
 

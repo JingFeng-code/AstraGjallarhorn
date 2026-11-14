@@ -34,6 +34,18 @@
     },
     {
       "type": "file",
+      "source": "agent/AGENTS.md",
+      "target": "agent/AGENTS.md",
+      "note": "Pi 全域工作規則（一般模式與深度執行模式都會生效）"
+    },
+    {
+      "type": "tree",
+      "source": "agent/prompts",
+      "target": "agent/prompts",
+      "note": "Pi prompt templates：verify、commit、review"
+    },
+    {
+      "type": "file",
       "source": "modes/README.md",
       "target": "modes/README.md",
       "note": "模式使用說明與還原步驟"
