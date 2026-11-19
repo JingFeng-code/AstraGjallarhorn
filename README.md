@@ -1,4 +1,18 @@
-# pi-config
+# AstraRelay
+## 名稱由來｜Astra Mythos
+
+AstraRelay 的品牌靈感來自古埃及的知識與書寫之神托特（Thoth）。知識、記錄與傳遞的象徵，延伸為可靠的多設備設定轉移。
+
+- **Astra**：星辰的意象，象徵知識、探索與方向。
+- **Relay**：Relay 指接力與傳遞，呼應本專案「Pi Coding Agent 跨電腦設定同步」的用途。
+- **AstraRelay**：世界神話靈感的現代產品命名，並非神話人物名稱或古代語言的直譯。
+
+這是象徵性連結；不將托特描述成專司軟體同步的神祇。原本的 `pi-config` 路徑及指令保持不變。
+
+> **GitHub 更名尚未執行**：目前儲存庫仍是 `JingFeng-code/pi-config`。本次先統一 README 的對外品牌名稱，不修改 CLI、程式命名、部署或設定同步路徑；後續 GitHub Repository Settings 更名需另行完成。
+
+---
+
 
 Pi Agent 的可攜設定同步專案：把「跨電腦可重建」的設定放進 Git，憑證與機器狀態永遠留在本機。
 
