@@ -1,16 +1,16 @@
-# AstraRelay
+# AstraGjallarhorn
 
-## 名稱由來｜Astra Mythos
+## 名稱由來｜Astra Mythos 神器系列
 
-AstraRelay 的品牌靈感來自古埃及的知識與書寫之神托特（Thoth）。知識、記錄與傳遞的象徵，延伸為可靠的多設備設定轉移。
+**新品牌顯示名稱：AstraGjallarhorn**。目前 GitHub repository 仍是 [`JingFeng-code/AstraRelay`](https://github.com/JingFeng-code/AstraRelay)；這次僅更新品牌文字，尚未改 GitHub Repository 名稱。
 
-- **Astra**：星辰的意象，象徵知識、探索與方向。
-- **Relay**：指接力與傳遞，呼應本專案「Pi Coding Agent 跨電腦設定同步」的用途。
-- **AstraRelay**：世界神話靈感的現代產品命名，並非神話人物名稱或古代語言的直譯。
+- **神器原型**：北歐神話中海姆達爾的號角 Gjallarhorn。
+- **傳說中的能力與考證界線**：在傳說中能響徹眾界、發出警訊；不代表軟體已提供即時廣播功能。
+- **軟體對應能力（現代品牌比喻）**：跨設備傳遞已核對的設定及訊號。
+- **實際產品定位**：Pi Coding Agent 的受控跨電腦設定同步。
+- **技術相容性**：`pi-config` 路徑及指令、備份與安全規則維持不變。
 
-這是象徵性連結；不將托特描述成專司軟體同步的神祇。原本的 `pi-config` 路徑及指令保持不變。
-
-> **GitHub 更名尚未執行**：目前儲存庫仍是 `JingFeng-code/pi-config`。本次先統一 README 的對外品牌名稱，不修改 CLI、程式命名、部署或設定同步路徑；後續 GitHub Repository Settings 更名需另行完成。
+**全系列命名規範的唯一維護來源**：[Astra Mythos｜神器系列品牌規範](https://github.com/JingFeng-code/AstraLore/blob/main/06-%E5%8F%83%E8%80%83/Astra-Mythos/ASTRA_MYTHOS.md)，位於工程筆記庫 AstraLore；本專案不另存品牌規範副本。
 
 ---
 
