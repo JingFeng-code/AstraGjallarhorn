@@ -3,6 +3,11 @@ import { expect, test } from "@playwright/test";
 test("saves a normalized title without a browser exception", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("response", (response) => {
+    if (response.status() >= 400) {
+      errors.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}`);
+    }
+  });
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
   });

@@ -14,6 +14,7 @@ pstack `architect` 已同步至正式 Pi 的 `agent/skills/architect`。隔離 P
 
 - [Gate 0–2 首輪盤點](docs/verification/gate-0-2.md)
 - [Gate Recovery 修正與驗證證據](docs/verification/gate-recovery.md)
+- [Pi 能力驗收與共用 CI 入口](docs/verification/capability-completion.md)
 
 ## 已完成
 

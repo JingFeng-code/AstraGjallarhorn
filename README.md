@@ -313,6 +313,10 @@ pwsh -File scripts\verify.ps1
 
 ## 工程驗證範例
 
+從儲存庫根目錄執行 `pwsh -NoProfile -File scripts/verify-project.ps1`。只需驗證一組時，加上 `-Suite sql`、`-Suite dotnet` 或 `-Suite vue`。先按各範例說明準備依賴。命令遇到第一個失敗便回傳該步驟的退出碼。
+
+在 Pi 裡，`/verify` 提供驗證和失敗交接指引。可用 `!pwsh -NoProfile -File scripts/verify-project.ps1` 直接執行，不消耗模型請求。三個 Windows CI 工作各執行相同入口的一組測試。PR 是否強制要求這些工作通過，取決於 GitHub 的分支規則。
+
 [SQLite 驗證範例](examples/sql/README.md)提供可獨立執行的 migration、schema 與欄位限制驗證，以及四項故障注入回歸。Windows CI 執行相同命令。
 
 [C# 驗證範例](examples/dotnet/README.md)提供 Roslyn 分析、xUnit 整合測試與 ArchUnitNET 依賴方向檢查。
