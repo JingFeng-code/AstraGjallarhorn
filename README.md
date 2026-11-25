@@ -18,7 +18,7 @@ Pi Agent 的可攜設定同步專案：把「跨電腦可重建」的設定放�
 
 - 來源電腦：Windows + Pi Agent 1.6.0（`@earendil-works/pi-coding-agent`）
 - 目標：多台 Windows 電腦以「匯出 → Git → 套用 → 驗證」的受控單向流程同步
-- 目前階段：單向同步（不做自動覆寫、不做雙向合併）
+- 目前階段：v0.2。單向同步（不做自動覆寫、不做雙向合併），另含 LSP、安全防護、Checkpoint、任務恢復、交接與 Diff Review，見第 11 節
 
 ---
 

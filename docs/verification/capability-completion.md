@@ -1,5 +1,7 @@
 # Pi 能力驗收
 
+> 本文件前半是歷史驗收紀錄，其中的 BLOCKED／DEFERRED 描述的是當時狀態。**目前狀態以最後一節「v0.2 Release Closure」為準。**
+
 Windows、Pi 1.6.0、Node 24.18.0。正式 `/verify` 使用已同步的提示。根目錄的 `scripts/verify-project.ps1` 可由 Pi 的 `!`、RPC bash 或 PowerShell 直接執行。CI 對 SQL、.NET、Vue 分別呼叫同一腳本，第一個失敗的退出碼會傳回給執行端。
 
 ## 本輪實測
@@ -92,3 +94,60 @@ Tool Profile 首輪的單檔防護只接受相對字串，誤拒合成檔案的�
 | 模型 A/B | PASS，保留上一輪真實本地模型單次配對及 PR 的原生／Better Edit 資料。 |
 
 發布結論：Draft PR 可供評審。必要 LSP、正式安全政策及自動交接尚未具備放行證據，v0.2 不標為完整。
+
+## v0.2 Release Closure
+
+2026-11-26，Windows 11、Pi 1.6.0、Node 24.18.0、PowerShell 7.7、.NET SDK 10.0.401、Microsoft C# 擴充功能 2.160.4。接手後新增的實作在 commit 範圍 `83d22ac`…本節所在 commit。證據分三層，分開記錄：
+
+1. **確定性功能測試**：`node --test tests/*.test.mjs`，166 項，設定 `ASTRA_TSLS` 後全部通過（含真實 typescript-language-server 與 Roslyn）；未設定時 TypeScript 伺服器測試略過。
+2. **真實 Pi 工具調度**：真實 Pi 1.6.0 RPC 程序，模型回應由腳本化提供者依序回傳，驗證工具事件、攔截、日誌與程序清理。八個入口（mode、retry-limit、command-guard、checkpoint、handoff、task-recovery、diff-review、lsp）全部通過，`tests/sync.ps1` 通過。
+3. **真實模型任務**：本地 Ollama `mimo-v2.6-agent32k`（先在隔離 agent 目錄，再在已安裝的正式 Pi），以及使用者既有訂閱的 `deepseek-v4.1-flash:cloud`（沒有新增費用）。原始輸出在 [evidence/](evidence/)。成功判定一律由 Pi 外部獨立執行 `tsc`、`dotnet build`、`git status`，不以模型自述為準。
+
+### 逐項判定
+
+| 必要能力 | 判定 | 證據與限制 |
+|---|---|---|
+| A. TypeScript LSP | **PASS** | `typescript-language-server@6.1.0` + `typescript@5.9.3`（兩個套件、零依賴、audit 0）。診斷 TS2322 → 修正後伺服器明確回報空清單 `CLEAN`（不是 inconclusive）；定義、跨檔引用；文件從磁碟同步（版本 +1）；Pi 結束與 `/lsp stop` 後程序消失；工具來源不含 fetch／npm／nuget 安裝路徑（靜態測試），`disableAutomaticTypingAcquisition`。Pi 調度與真實模型（隔離 29 秒、正式 12–47 秒）均通過，獨立 `tsc` 回傳 0。 |
+| B. C# LSP | **PASS（限有 VS Code C# 擴充功能的機器）** | Microsoft Roslyn Language Server（Authenticode 有效）。`project/open` 載入專案約 2.6 秒；pull 診斷 CS0029 出現、修正後清除；定義、跨檔引用；文件同步；`workspace/configuration` 關閉自動 restore（沒有 restore 產物的專案不會被隱式還原）；Roslyn 與 BuildHost 程序在結束後歸零。語意診斷不到的原因（先前缺少專案載入）已解決。真實模型：隔離 21–28 秒、正式 + 雲端模型 13–16 秒，獨立 `dotnet build` 回傳 0。**限制**：CI runner 沒有 Roslyn，僅在本機驗證；`dotnet restore` 須先完成。 |
+| C. 背景任務恢復 | **PASS** | 任務日誌（提示、每個呼叫、擁有者 pid）。真實 Pi 被 `taskkill /F` 殺死於執行中的呼叫後，新 Pi 偵測到「1 個完成、1 個結果未知」，`/task resume` 產生的提示包含已完成清單與「可能已改變狀態」標示並禁止盲目重跑；第二次續接被拒，沒有重複派工；鎖防止並行續接；逾時取消後任務為 `timeout`、沒有殘留子程序；孤兒程序報告（確認後才終止）。恢復的是任務而不是 OS 程序。 |
+| D. 自動 Checkpoint | **PASS** | 每個任務前後自動快照（tracked + untracked，遵守 .gitignore），不改 index／HEAD／stash／檔案（測試逐項比對）。還原預覽、只還原任務改變的路徑、任務後被外部修改的檔案 SKIP、其他 Agent 的檔案不碰、還原到任務開始前（含當時未提交修改）而不是 HEAD、還原前自動安全快照。偵測任務間的外部修改、偵測同一工作樹內另一個活躍 Pi 並建議 `/checkpoint isolate` 建立獨立 git worktree。限制：同一工作樹內同時作業的 Agent 無法被分辨。 |
+| E. 安全指令防護 | **PASS（啟發式，非 OS Sandbox）** | 141 條指令語料（允許 47、需核准 51、拒絕 43）加檔案工具與解析器測試，涵蓋：授權目錄外寫入／刪除、破壞性 git、大量刪除、憑證、其他 Agent 設定、Pi 自身設定、全域安裝、系統設定、`bash -c`／`eval`／`-EncodedCommand`／`$()`／管線／`cd` 後相對路徑／`Start-Process` 間接執行、`curl | sh`，以及正常 build／test／lint 不被擋。真實 Pi：破壞性 git 被拒後未提交修改保留；人工核准後放行；外部寫入與憑證讀取拒絕。真實模型（正式 Pi）要求執行 `git reset --hard` 被攔下且檔案保留；真實模型在防護開啟下完成 SQL 修復迴圈，0 次誤攔。限制見 README 第 11 節。 |
+| F. Herdr 自動交接 | **PASS（預設關閉）** | 第三次失敗後 retry-limit 停止並發出事件；`handoff.js` 檢查接收者存在、活著、閒置、工作目錄相同、Agent 種類未被更換、不是自己；寫摘要檔；透過 `hc send --if idle` 送一行短指令；確認接收者狀態變 working 或 turn 增加；送出失敗或未確認都保留摘要並停止，不重試；帳本與標記防止重複與循環，每小時上限 3 次。真實 Pi 對腳本化假 `hc` 驗證，假 hc 回傳與真實 `hc get --json` 相同欄位（`status.state`、`status.app`、`cwd`、`turn`、`labels`）。**未對真實 OpenCode 工作階段送出交接**：避免打擾使用者現有的 Agent；對真實 hc 只做了唯讀的 `hc get --json` 欄位核對。 |
+| G. Diff Review | **PASS** | 唯讀 `review_diff`：固定的 git 讀取命令，staged／unstaged／untracked、範圍報告（缺少回歸測試、部分暫存）、工作樹指紋前後比對。真實 Pi 調度與真實模型（隔離 17 秒；正式 Pi 15–29 秒）自行取得 diff，指出測試缺口，工作樹逐位元組未變。模型是否正確抓到所有架構違規屬模型能力：本地模型未讀取 untracked 檔案，已在報告中如實保留。 |
+
+### 真實模型紀錄（僅新增能力，單次，不推論普遍效能）
+
+| 情境 | 模型 | 工具序列 | 結果 |
+|---|---|---|---|
+| TypeScript LSP，隔離 | mimo-v2.6-agent32k | lsp_diagnostics → read×5（4 次誤用路徑）→ edit → lsp_diagnostics | CLEAN；獨立 tsc 0；29 秒 |
+| C# LSP，隔離（首次，模型直接讀檔略過 LSP） | mimo-v2.6-agent32k | read → edit → lsp_diagnostics | 未證明 LSP 偵錯，改寫提示 |
+| C# LSP，隔離（不讀檔） | mimo-v2.6-agent32k | lsp_diagnostics×3 → read → edit → lsp_diagnostics | 看到 CS0029，CLEAN；獨立 build 0；21 秒 |
+| Diff Review，隔離 | mimo-v2.6-agent32k | read → review_diff | 指出測試缺口；工作樹未變；17 秒 |
+| Guard 正常迴圈，隔離 | mimo-v2.6-agent32k | bash、bash、edit、bash、bash | 0 次誤攔；驗證 0；24 秒 |
+| 正式 Pi 清單 | — | — | 十個指令全部可探索 |
+| 正式 Pi，guard + checkpoint | mimo-v2.6-agent32k | bash(被攔) | 檔案保留；2 個 checkpoint refs；13 秒 |
+| 正式 Pi，TypeScript LSP | mimo-v2.6-agent32k | 7 個呼叫 | CLEAN；獨立 tsc 0；47 秒（含一次 edit 失敗後重試） |
+| 正式 Pi，Diff Review | mimo-v2.6-agent32k | review_diff | 工作樹未變；29 秒 |
+| 正式 Pi，C# LSP | mimo-v2.6-agent32k（兩次） | 反覆 `read` 誤用參數名；第二次 Better Edit 多行錨點破壞檔案（13 個診斷） | **未通過**。LSP 正確回報破壞後的錯誤；失敗原因是本地模型與 Better Edit 工具形狀，與既有紀錄一致 |
+| 正式 Pi，C# LSP | deepseek-v4.1-flash:cloud | lsp_diagnostics×3 → read → edit → lsp_diagnostics | CLEAN；獨立 build 0；16 秒 |
+| 正式 Pi，全部情境 | deepseek-v4.1-flash:cloud | 見 [formal-pi-cloud-model.json](evidence/formal-pi-cloud-model.json) | inventory、LSP×2、Diff Review 通過；guard 情境中模型自行拒絕執行破壞性命令（檔案保留，防護未被觸發），該情境以 mimo 結果為準 |
+
+同一失敗原因（本地模型經 Better Edit 修改 C# 檔案）已有三次新證據的嘗試：原生工具通過、Better Edit 兩次失敗、更換為訂閱雲端模型通過，之後不再重複。這表示：本地小模型不應配 Better Edit 做多行 C# 修改；此限制屬於模型，不屬於 LSP 擴充功能。
+
+### 正式安裝
+
+使用 `scripts/apply.ps1 -StrictVersion`：第一次 dry-run 為新增 6、更新 2、相同 22、衝突 0；備份後寫入 8 個檔案。`typescript` 與 `typescript-language-server` 以固定版本安裝在 `~/.pi/agent/lsp`。後續修正（LSP 顯示原始碼行、Checkpoint 多 Agent 偵測、防護 `Start-Process`）再次 dry-run（更新 3、衝突 0）並備份後套用。`scripts/verify.ps1`：16 PASS、0 FAIL、0 WARN、1 MANUAL（Alt+M 需要 TTY）。
+
+保護範圍：Pi 的 `auth.json`、`models.json`、`models-store.json`、`mode-state.json`、`mcp.json`、`astra-herdr.js`、`mode-switch.ts`、`hashline.js` 以及 `~/.codex`、`~/.config/opencode`、`~/.config/herdr-core`、AstraAegis 的雜湊與 HEAD 在安裝前後比對，結果如下。
+
+### 保護檔案比對
+
+安裝前後對 7,083 個保護檔案做 SHA-256 比對：7,064 個一致，19 個不同。
+
+- Pi：`auth.json`、`models.json`、`mode-state.json`、`mcp.json`、`astra-herdr.js`、`mode-switch.ts`、`hashline.js` 全部一致。唯一不同的 Pi 檔案是 `models-store.json`（Provider 模型快取）：驗收時啟動正式 Pi 程序，Pi 自己重新整理了這份快取，不是本專案寫入，內容不含偏好設定。
+- Codex：18 個不同的檔案是正在執行的 Codex 的資料庫、鎖、socket、`models_cache.json` 與外掛暫存檔。這些檔案被 Codex 程序佔用並持續寫入；本輪沒有對它們寫入。
+- OpenCode、Herdr 設定、AstraAegis：全部一致；AstraAegis HEAD 仍為 `732aafec`，工作樹乾淨。
+
+### v0.2 判定
+
+七項必要能力均有實際證據，沒有因阻塞而延後的必要功能。限制已如實列於上表與操作手冊第 6 節。本分支標記為 **v0.2 RELEASE READY**，待人工審查 Draft PR 與 CI；未合併 main、未建立 Release。

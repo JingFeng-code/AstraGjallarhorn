@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { startPi } from "../lib/pi-rpc.mjs";
 
 const [cli, only] = process.argv.slice(2);
-const model = "mimo-v2.6-agent32k";
+const model = process.env.FORMAL_MODEL ?? "mimo-v2.6-agent32k";
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const git = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8" });
 const toolText = (e) => (e.result?.content ?? []).map((c) => c.text).join("\n");
