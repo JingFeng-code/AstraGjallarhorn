@@ -16,7 +16,8 @@ const WIN = process.platform === "win32";
 const agentRoot = () => process.env.PI_CODING_AGENT_DIR ?? path.join(os.homedir(), ".pi", "agent");
 const norm = (p) => (WIN ? path.resolve(p).toLowerCase() : path.resolve(p));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-export const toUri = (file) => pathToFileURL(file).href;
+export const canonical = (p) => { try { return realpathSync.native(p); } catch { return p; } };
+export const toUri = (file) => pathToFileURL(canonical(file)).href;
 export const fromUri = (uri) => fileURLToPath(uri);
 const uriKey = (uri) => { try { return norm(fromUri(uri)); } catch { return uri; } };
 
@@ -142,7 +143,7 @@ export class LspClient {
   }
   // Make the server's view of `file` equal to the bytes on disk. Returns { uri, version, changed }.
   async sync(file, languageId) {
-    try { file = realpathSync.native(file); } catch { /* keep as given */ }
+    file = canonical(file);
     const uri = toUri(file);
     const text = await readFile(file, "utf8");
     const known = this.docs.get(uri);
@@ -302,8 +303,7 @@ export class LspManager {
   constructor({ idleMs = 10 * 60_000 } = {}) { this.clients = new Map(); this.idleMs = idleMs; }
   async get(language, file, cwd) {
     // Long, canonical paths only: tsserver's file watcher aborts on Windows 8.3 short names (RUNNER~1).
-    const canon = (p) => { try { return realpathSync.native(p); } catch { return p; } };
-    file = canon(file); cwd = canon(cwd);
+    file = canonical(file); cwd = canonical(cwd);
     const ws = await workspaceFor(language, file, cwd);
     const key = `${language}|${norm(ws.root)}`;
     let entry = this.clients.get(key);
@@ -419,8 +419,11 @@ export default async function (pi) {
       try {
         const client = await manager.get(t.server, t.abs, ctx.cwd);
         await client.sync(t.abs, t.languageId);
-        const result = await client.request(method, { textDocument: { uri: toUri(t.abs) }, position: { line: params.line - 1, character: params.column - 1 }, ...extra }, 30000);
-        const locations = normaliseLocations(result);
+        let locations = [];
+        for (let attempt = 0; attempt < 4 && !locations.length; attempt++) { // project may still be loading: empty answers are retried briefly
+          if (attempt) await sleep(1500);
+          locations = normaliseLocations(await client.request(method, { textDocument: { uri: toUri(t.abs) }, position: { line: params.line - 1, character: params.column - 1 }, ...extra }, 30000));
+        }
         if (!locations.length) return text("No results.", false, { count: 0 });
         return text(locations.map((l) => `${path.relative(ctx.cwd, l.path)}:${l.line}:${l.column}`).join("\n"), false, { count: locations.length });
       } catch (error) { return text(`LSP unavailable: ${error.message}`, true, { status: "unavailable" }); }

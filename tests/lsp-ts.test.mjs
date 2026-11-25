@@ -34,11 +34,12 @@ test("TypeScript server: diagnostics appear, clear after the fix, navigation wor
     assert.ok(good.version >= version + 1, "document re-synced from disk");
     assert.deepEqual(good.diagnostics, [], `positive CLEAN report, not inconclusive; version=${good.version} logs=${JSON.stringify(client.logs.slice(-8))} published=${JSON.stringify([...client.published.values()].map((p) => ({ v: p.version, n: p.diagnostics.length, seq: p.seq })))}`);
 
-    const def = normaliseLocations(await client.request("textDocument/definition", { textDocument: { uri: toUri(main) }, position: { line: 2, character: 14 } }));
+    const settle = async (fn, ok) => { for (let i = 0; i < 12; i++) { const r = await fn(); if (ok(r)) return r; await new Promise((x) => setTimeout(x, 1000)); } return fn(); };
+    const def = await settle(async () => normaliseLocations(await client.request("textDocument/definition", { textDocument: { uri: toUri(main) }, position: { line: 2, character: 14 } })), (r) => r.length > 0);
     assert.equal(path.basename(def[0].path), "lib.ts");
     assert.equal(def[0].line, 1);
     await client.sync(lib, "typescript");
-    const refs = normaliseLocations(await client.request("textDocument/references", { textDocument: { uri: toUri(lib) }, position: { line: 0, character: 20 }, context: { includeDeclaration: true } }));
+    const refs = await settle(async () => normaliseLocations(await client.request("textDocument/references", { textDocument: { uri: toUri(lib) }, position: { line: 0, character: 20 }, context: { includeDeclaration: true } })), (r) => r.length >= 3);
     assert.ok(refs.length >= 3, `declaration + import + call, got ${refs.length}`);
 
     await manager.stopAll();
