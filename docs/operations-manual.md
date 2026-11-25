@@ -101,6 +101,17 @@ pwsh -File scripts\verify.ps1                        # 期望 0 FAIL；Alt+M 為
 
 Pi CLI 路徑：`$HOME\.pi\agent\install\releases\1.6.0\node_modules\@earendil-works\pi-coding-agent\dist\cli.js`。
 
+## 5.1 Roslyn 相依與固定版本
+
+C# LSP 使用 Microsoft C# VS Code 擴充功能（`ms-dotnettools.csharp`）隨附的 Roslyn Language Server，Pi 不下載它。已測組合與雜湊記錄在 `manifests/packages.json` 的 `lsp.csharp`（擴充功能 2.160.4、伺服器 5.12.0-1.26452.1、.NET SDK 10.0.401）。`scripts/verify.ps1` 檢查：找不到為 WARN（只影響 C# LSP 工具）、簽章無效為 FAIL、版本與已測雜湊不同為 WARN（請執行 `node --test tests/lsp-cs.test.mjs` 確認相容）。需要固定版本時，用環境變數 `ASTRA_ROSLYN_LS` 指向你審查過的 `Microsoft.CodeAnalysis.LanguageServer.dll`。
+
+## 5.2 自動交接的操作注意
+
+- 啟用前先 `/retry-limit on`，並確認接收者是專用且閒置的終端、工作目錄與 Pi 相同；`/handoff-auto check` 隨時可重新檢查。
+- 每小時最多 3 次（帳本 `~/.pi/agent/handoffs/ledger.json`）。大量測試後被擋下是預期行為；要重來可以把該檔改名備份。
+- 摘要檔會遮罩常見祕密，但仍請避免在提示裡貼憑證。
+- 真實驗收可重跑：`node tests/real-model/handoff-e2e.mjs <pi cli.js>`（只會建立並移除自己的專用 OpenCode 終端與 `E:Astra.astra-runshandoff-e2e` 下的合成專案；路徑寫在腳本開頭，請依機器調整）。
+
 ## 6. 已知限制（誠實清單）
 
 - 安全防護是啟發式政策，不是 OS Sandbox（見 README 第 11 節）。
@@ -108,4 +119,6 @@ Pi CLI 路徑：`$HOME\.pi\agent\install\releases\1.6.0\node_modules\@earendil-w
 - 任務恢復恢復的是「任務」，不是 OS 程序；結果未知的有副作用操作由模型依證據判斷，無法由擴充功能保證。
 - 自動交接是否不增加費用取決於你的聲明與接收者設定。
 - LSP：TypeScript 的 `CLEAN` 來自 push 診斷，在極端情況下伺服器可能晚於逾時才回應，會得到 `INCONCLUSIVE` 而非錯誤的 `CLEAN`。C# 需要先 `dotnet restore`。Vue 檔案與其他語言沒有 LSP。
+- Alt+M 在 TTY 才能使用；本專案以 Herdr 終端加 `hc keys alt+m` 驗證過，沒有人手按鍵的紀錄。
+- Retry Limit 在模型一次送出平行呼叫時，同批已啟動的呼叫無法收回，保證的是停止後不再啟動新呼叫。
 - CI（Windows runner）不含 Roslyn，C# LSP 只在有 VS Code C# 擴充功能的機器上驗證。

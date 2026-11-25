@@ -202,7 +202,7 @@ Tool Profile 首輪的單檔防護只接受相對字串，誤拒合成檔案的�
 
 ### 保護檔案比對（最終）
 
-OpenCode 全域設定沒有被修改：本輪只在合成專案目錄放 `opencode.json`。Pi 的 `auth.json`、`models.json`、`mode-state.json`、`mcp.json`、`astra-herdr.js`、`mode-switch.ts` 與 `hashline.js` 的雜湊與接手時一致。其餘結果見前一節「保護檔案比對」。
+最終重新比對 7,083 個保護檔案：7,064 個一致，4 個不同：Pi 的 `models-store.json`（模型快取，Pi 程序啟動時自行更新）與 3 個正在執行的 Codex 資料庫／快取檔。OpenCode 全域設定沒有被修改：本輪只在合成專案目錄放 `opencode.json`；AstraAegis 的 HEAD 仍為 `732aafec` 且工作樹乾淨。Pi 的 `auth.json`、`models.json`、`mode-state.json`、`mcp.json`、`astra-herdr.js`、`mode-switch.ts` 與 `hashline.js` 的雜湊與接手時一致。其餘結果見前一節「保護檔案比對」。
 
 ### 判定
 
