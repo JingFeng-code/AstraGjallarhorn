@@ -57,7 +57,8 @@ Windows、Pi 1.6.0、Node 24.18.0。正式 `/verify` 使用已同步的提示。
 | REPLACED | Pi 原生 Compaction 的 Session 行為已驗證。測試提供者回傳摘要，原生 RPC 估計 Token 由 9,280 降至 649，新 Pi 程序重新開啟同一 Session 後仍讀到摘要。這項證據涵蓋 Session 續接，執行中的背景程序恢復及真實摘要品質另計。原生 `set_model` 在隔離目錄成功選到第二模型及切回，未呼叫模型或更改正式偏好。 |
 | BLOCKED | Lens 的 TypeScript 仍需要能明確回報清除的 LSP 與結束清理證據。C# 需要 Roslyn 工作區載入、離線固定 grammar 和語法、型別、定義、引用回歸。正式放行還需要驗證未放行語言及下載可停用。 |
 | BLOCKED | `correct` 使用原生工具可完成 SQL 修復，與正式 Better Edit 工具形狀組合時，兩次模型都改壞鄰行，分別在 PRAGMA 或 title 附近出現語法錯誤。解除條件是同一回歸的模型輸出只改目標行並通過驗證。 |
-| BLOCKED | 自主 Quality Gate 與模型 Runtime 的連續操作需要真實模型完成執行、取得退出碼、修正、重跑的單趟證據。目前可重現的 SQL 修復使用外層獨立驗證，Playwright 已能偵測故障。 |
+| PASS | 正式 Pi 的真實本地模型在單行合成 SQL 遷移完成自主 Quality Gate。正常工具事件依序為 `bash` 執行 `node verify.mjs` 回傳 1、`read`、Better Edit `edit`、`bash` 重跑同一命令回傳 0。工具防護只容許合成檔案與該驗證命令。外層獨立再驗證回傳 0。 |
+| BLOCKED | 模型 Runtime 故障的自主修復仍需完整 Playwright 驗收，包含模型自行取得故障、修復與重新執行。現有 Playwright 的故障注入已由共用腳本證實。 |
 | BLOCKED | 仍缺已驗證的背景程序續跑、任務 Checkpoint、通用安全指令政策、Plan／Diff Review 與自動 Herdr 交接。正式設定的備份還原與手動停止摘要維持可用。 |
 | DEFERRED | Context Mode 的合成索引與搜尋仍有 Sandbox 證據。這版先使用已驗證的原生 Compaction。候選的執行期攔截與索引資料恢復未取得足以支持正式安裝的證據。 |
 
