@@ -32,7 +32,7 @@ test("TypeScript server: diagnostics appear, clear after the fix, navigation wor
     await writeFile(main, 'import { greet } from "./lib.js";\nconst n: number = 42;\nconsole.log(greet("a"), n);\n'); // edited by "any tool"
     const good = await client.diagnose(main, "typescript");
     assert.ok(good.version >= version + 1, "document re-synced from disk");
-    assert.deepEqual(good.diagnostics, [], "positive CLEAN report, not inconclusive");
+    assert.deepEqual(good.diagnostics, [], `positive CLEAN report, not inconclusive; version=${good.version} logs=${JSON.stringify(client.logs.slice(-8))} published=${JSON.stringify([...client.published.values()].map((p) => ({ v: p.version, n: p.diagnostics.length, seq: p.seq })))}`);
 
     const def = normaliseLocations(await client.request("textDocument/definition", { textDocument: { uri: toUri(main) }, position: { line: 2, character: 14 } }));
     assert.equal(path.basename(def[0].path), "lib.ts");
