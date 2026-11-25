@@ -166,7 +166,7 @@ export class LspClient {
     return ids.length ? [...new Set(ids)] : [null];
   }
   async diagnose(file, languageId, { timeout = 20000, settle = 1500 } = {}) {
-    const { uri, version } = await this.sync(file, languageId);
+    let { uri, version } = await this.sync(file, languageId);
     const pull = this.serverCapabilities.diagnosticProvider || this.registrations.some((r) => r.method === "textDocument/diagnostic");
     if (pull) {
       const items = [];
@@ -181,14 +181,26 @@ export class LspClient {
       if (answered) return { source: "pull", version, diagnostics: dedupe(items) };
     }
     // Push model: wait for a publish that covers this version (or any publish after the sync).
-    const startSeq = this.seq;
-    const deadline = Date.now() + timeout;
+    let startSeq = this.seq;
+    let wanted = version;
+    const started = Date.now();
+    const deadline = started + timeout;
+    let nudged = false;
     let hit;
     while (Date.now() < deadline) {
       const rec = this.published.get(uriKey(uri));
-      if (rec && (rec.version === version || (rec.version === undefined && rec.seq > startSeq))) { hit = rec; break; }
+      if (rec && (rec.version === wanted || (rec.version === undefined && rec.seq > startSeq))) { hit = rec; break; }
+      if (!nudged && Date.now() - started > timeout / 3) {
+        // A slow or debouncing server may have missed the change: resend identical text as a new version once.
+        nudged = true;
+        const doc = this.docs.get(uri);
+        doc.version += 1; wanted = doc.version; startSeq = this.seq;
+        this.notify("textDocument/didChange", { textDocument: { uri, version: doc.version }, contentChanges: [{ text: doc.text }] });
+        this.notify("textDocument/didSave", { textDocument: { uri }, text: doc.text });
+      }
       await sleep(50);
     }
+    version = wanted;
     if (!hit) return { source: "push", version, diagnostics: undefined };
     await sleep(settle); // later passes (semantic after syntactic) arrive as separate publishes
     const last = this.published.get(uriKey(uri));

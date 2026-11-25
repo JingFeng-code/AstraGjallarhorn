@@ -31,7 +31,7 @@ test("TypeScript server: diagnostics appear, clear after the fix, navigation wor
 
     await writeFile(main, 'import { greet } from "./lib.js";\nconst n: number = 42;\nconsole.log(greet("a"), n);\n'); // edited by "any tool"
     const good = await client.diagnose(main, "typescript");
-    assert.equal(good.version, version + 1, "document re-synced from disk");
+    assert.ok(good.version >= version + 1, "document re-synced from disk");
     assert.deepEqual(good.diagnostics, [], "positive CLEAN report, not inconclusive");
 
     const def = normaliseLocations(await client.request("textDocument/definition", { textDocument: { uri: toUri(main) }, position: { line: 2, character: 14 } }));

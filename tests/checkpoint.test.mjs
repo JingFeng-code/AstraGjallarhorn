@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, writeFile, readFile, rm, access, mkdir } from "node:fs/promises";
+import { mkdtemp, writeFile, readFile as readRaw, rm, access, mkdir, realpath } from "node:fs/promises";
+const lf = (text) => text.split("\r\n").join("\n"); // autocrlf on Windows runners
+const readFile = async (p, enc) => lf(await readRaw(p, enc));
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -45,7 +47,7 @@ test("checkpoint snapshots tracked and untracked state without touching index, H
     assert.equal(git(root, "show", `${cp.commit}:other.txt`), "other staged then unstaged edit\n");
     assert.throws(() => git(root, "show", `${cp.commit}:ignored/x.bin`), "ignored files are not captured");
     assert.equal((await listCheckpoints(root)).length, 1);
-    assert.equal(await repoRootOf(root), path.resolve(root));
+    assert.equal(await realpath(await repoRootOf(root)), await realpath(root));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

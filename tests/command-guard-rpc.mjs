@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFile, writeFile, access } from "node:fs/promises";
+import { readFile as readRaw, writeFile, access } from "node:fs/promises";
+const readFile = async (p, e) => (await readRaw(p, e)).split("\r\n").join("\n");
 import path from "node:path";
 import { startPi, piCli } from "./lib/pi-rpc.mjs";
 
