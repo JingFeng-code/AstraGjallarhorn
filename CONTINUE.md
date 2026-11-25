@@ -54,3 +54,10 @@ pwsh -NoProfile -File tests/sync.ps1
 早期 Gate 歷史和已完成的測試保存在上方連結，不需要重新驗證 Sandbox 啟用或重做已通過的候選測試。
 
 本輪正式更新 Retry Limit。設定隨 Session 保留，新增明確選用的 strict 與手動 handoff。正式安裝檔副本透過 Pi RPC 通過 reload、三個不同 shell 非零退出碼、沒有第 4 次請求、摘要讀取及新 Session 預設關閉。SQL CI 加入固定 Pi 1.6.0 的模式、Retry Limit RPC 與同步回歸。Context Mode 2.2.3 已在離線 Sandbox 經正常 Pi 調度完成合成內容索引與搜尋。正式環境的攔截政策、Compaction、恢復與真實模型效益仍待確認。
+
+## Release Gate Closure
+
+- 正式新增固定版 `pi-better-edit@2.21.0` 及按需的 `create-verification-skill`。Better Edit 的依賴預演比對確認既有依賴無變動，安裝結果及入口雜湊符合 Sandbox 審查版本。模型在離線來賓成功處理過期錨點，正式 Pi 的獨立 Session 重跑直接錨點修復成功。保留第一方 Hashline 與既有 Tool Profiles。
+- 跨機請在乾淨工作樹同步，執行 `scripts/apply.ps1 -StrictVersion` 預覽。若缺 Better Edit，從停用 lifecycle 的暫存 npm 安裝預演核對該機既有 lock 不會被升級，再以 `npm install --prefix "$env:USERPROFILE/.pi/agent/npm" --ignore-scripts --legacy-peer-deps --save-exact --no-audit --no-fund pi-better-edit@2.21.0` 安裝到 Pi 私有 npm 目錄。之後 Apply 並 Verify。先保存該機 Pi 的 npm lock 及設定。Sandbox 維持開發驗收用途。
+- 本地模型產出的可攜 `verify-sql` 草稿通過 Pi 探索及原樣命令 0、1、0 的驗收。`correct` 在原生工具下修復通過，但 Better Edit 組合兩次對多行 SQL 注入額外語法問題，未套用。下一個放行條件是模型只替換目標單行並通過原有 regression。
+- Lens 的 TypeScript 清除與 C# 診斷仍未放行。原生 Compaction 與重新開啟 Session 已補測；Context Mode 的攔截與資料恢復仍無取得等效實證，保留原生功能。完整 Gate 狀態與 A/B 見能力驗收紀錄。

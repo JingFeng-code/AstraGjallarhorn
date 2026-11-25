@@ -28,6 +28,18 @@
   "entries": [
     {
       "type": "file",
+      "source": "agent/skills/create-verification-skill/SKILL.md",
+      "target": "agent/skills/create-verification-skill/SKILL.md",
+      "note": "Pi 專屬 pstack 驗證技能產生器"
+    },
+    {
+      "type": "file",
+      "source": "agent/skills/create-verification-skill/LICENSE",
+      "target": "agent/skills/create-verification-skill/LICENSE",
+      "note": "pstack MIT 授權"
+    },
+    {
+      "type": "file",
       "source": "agent/extensions/retry-limit.js",
       "target": "extensions/retry-limit.js",
       "note": "Pi 選用的相同失敗工具呼叫上限"

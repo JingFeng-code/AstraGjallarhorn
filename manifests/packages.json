@@ -17,6 +17,12 @@
       "version": "0.13.1",
       "pin": "npm:pi-ollama-cloud@0.13.1",
       "source": "npm:pi-ollama-cloud"
+    },
+    {
+      "name": "pi-better-edit",
+      "version": "2.21.0",
+      "pin": "npm:pi-better-edit@2.21.0",
+      "source": "npm:pi-better-edit"
     }
   ],
   "excluded": [

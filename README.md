@@ -319,6 +319,8 @@ pwsh -File scripts\verify.ps1
 
 ### Hashline 編輯
 
+正式 Pi 已採用 `pi-better-edit@2.21.0`。模型的 `read` 會回傳行錨點，`edit` 使用目前工具 schema 的 `file`、`anchor_from`、`anchor_to`、`text`。單行替換時兩個端點應為同一錨點。工具拒絕舊錨點時，重新讀取再編輯。既有 `/hashline` 與 `/hashreplace` 仍提供使用者明確呼叫的整檔快照保護。
+
 在 Pi 輸入 `/hashline {"file":"examples/sql/001-create-notes.sql","start":1}`，取得整檔 SHA-256 及行錨點。複製實際回傳的值到下列命令。省略 `last` 只替換一行，`lines: []` 移除指定範圍。
 
 ```text
@@ -344,3 +346,5 @@ pwsh -File scripts\verify.ps1
 [Vue／TypeScript 驗證範例](examples/vue/README.md)提供 ESLint、vue-tsc、Vitest、Vite 建置及 Playwright 瀏覽器驗證。
 
 Pi 的 `/skill:architect <設計題目>` 比較模組邊界與相依方向。此技能只在明確呼叫時載入。來源為 [pstack 固定版本](https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388/pstack/skills/architect)，MIT 授權隨檔同步。
+
+`/skill:create-verification-skill <已實測的命令、工作目錄、成功與失敗退出碼>` 產出可審查的 Markdown 草稿。驗證草稿中的原樣命令後，再存入專案的 `.pi/skills/<name>/SKILL.md`。這是 [pstack](https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388/pstack) 的精簡 Pi 適配，使用明確呼叫、相對路徑及實際退出碼，附 MIT 授權。
