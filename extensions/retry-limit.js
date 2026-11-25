@@ -79,7 +79,7 @@ export default function (pi) {
       const summary = `Retry limit stopped ${event.toolName} after ${reason}. Last tool call: ${event.toolCallId}. Review its error in this session before resuming; pass this summary to Herdr manually if needed.`;
       ctx.abort();
       pi.appendEntry(HANDOFF_ENTRY, { summary });
-      pi.events.emit("astra:retry-stopped", {
+      pi.events?.emit("astra:retry-stopped", {
         policy, reason, tool: event.toolName, toolCallId: event.toolCallId, args: argsById.get(event.toolCallId),
         error: JSON.stringify(event.result ?? null).slice(0, 1200), summary,
       });
