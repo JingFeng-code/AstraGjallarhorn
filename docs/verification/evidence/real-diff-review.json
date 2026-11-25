@@ -1,0 +1,14 @@
+{
+  "scenario": "diff-review",
+  "model": "mimo-v2.6-agent32k:latest",
+  "seconds": 17,
+  "calls": [
+    "read",
+    "review_diff"
+  ],
+  "usedReviewDiff": true,
+  "mentionsTestGap": true,
+  "mentionsArchitecture": true,
+  "worktreeUnchanged": true,
+  "answer": "## Review findings\n\n**Severity: High — untested behavior change**\n- `src/price.ts` flips the multiplier from `2` to `3`, but no test file exists in the repo at all. `review_diff` confirms a regression-test gap: 2 source files changed, 0 tests. The only new source file, `src/domain/order.ts`, is untracked and therefore outside the diff entirely.\n\n**Severity: Medium — architecture violation risk**\n- `src/domain` must not import from `src/infra`. `src/domain/order.ts` is new and untracked, so its contents cannot be verified from the diff — I can't confirm whether it violates the architecture rule. If it imports infra (e.g., for persistence or transport), it would breach the contract.\n\n**Missing regression tests**\n- No test suite is present or tracked in this repository. Both changes (`price.ts` multiplier, `order.ts` new domain logic) ship with zero coverage, so a future run won't catch eit"
+}

@@ -1,0 +1,16 @@
+{
+  "scenario": "lsp-ts",
+  "model": "mimo-v2.6-agent32k:latest",
+  "seconds": 21,
+  "calls": [
+    "lsp_diagnostics(error)",
+    "lsp_diagnostics",
+    "read",
+    "edit",
+    "lsp_diagnostics"
+  ],
+  "firstDiagnostics": "Validation failed for tool \"lsp_diagnostics\": |   - path: missing",
+  "lastDiagnostics": "CLEAN: src/main.ts has no errors or warnings (server typescript, push, version 2).",
+  "independentTscExit": 0,
+  "mainTs": "import { greet } from \"./lib.js\";\n\nconst count: string = greet(\"a\");\nconsole.log(count);\n"
+}

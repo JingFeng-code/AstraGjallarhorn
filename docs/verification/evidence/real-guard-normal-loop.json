@@ -1,0 +1,14 @@
+{
+  "scenario": "guard-normal-loop",
+  "model": "mimo-v2.6-agent32k:latest",
+  "seconds": 24,
+  "calls": [
+    "bash",
+    "bash",
+    "edit",
+    "bash",
+    "bash"
+  ],
+  "guardBlockedNormalCalls": 0,
+  "independentVerifyExit": 0
+}

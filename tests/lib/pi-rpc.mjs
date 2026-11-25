@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 // script: array of steps. step = { text } | { tools: [{name, args}] } | function(requestBody, n) => step
-export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false }) {
+export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false, real }) {
   const cwd = baseDir ?? await mkdtemp(path.join(tmpdir(), "astra-rpc-"));
   const agent = path.join(cwd, "agent");
   const work = path.join(cwd, "work");
@@ -44,13 +44,13 @@ export async function startPi({ cli, script, extensions, extraFiles = {}, env = 
     res.end(`data: ${chunk(first, null)}\n\ndata: ${chunk({}, tools.length ? "tool_calls" : "stop")}\n\ndata: [DONE]\n\n`);
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  await writeFile(path.join(agent, "models.json"), JSON.stringify({
+  await writeFile(path.join(agent, "models.json"), JSON.stringify(real ? { providers: { ollama: { baseUrl: "http://127.0.0.1:11434/v1", api: "openai-completions", apiKey: "ollama", models: [{ id: real.model, contextWindow: 32768, reasoning: false, input: ["text"] }] } } } : {
     providers: { fixture: {
       baseUrl: `http://127.0.0.1:${server.address().port}/v1`, api: "openai-completions", apiKey: "fixture-only", models: [{ id: "fixture" }],
     } },
   }));
   const child = spawn(process.execPath, [
-    path.resolve(cli), "--offline", "--no-mcp", "--no-skills", "--no-context-files", "--mode", "rpc", "--provider", "fixture", "--model", "fixture", ...args,
+    path.resolve(cli), "--offline", "--no-mcp", "--no-skills", "--no-context-files", "--mode", "rpc", "--provider", real ? "ollama" : "fixture", "--model", real ? real.model : "fixture", ...args,
   ], { cwd: work, env: { ...process.env, PI_CODING_AGENT_DIR: agent, ...env } });
   child.stderr.on("data", (d) => process.stderr.write(d));
   const rl = createInterface({ input: child.stdout });
@@ -84,7 +84,7 @@ export async function startPi({ cli, script, extensions, extraFiles = {}, env = 
       const before = events.filter((e) => e.type === "agent_end").length;
       const res = await harness.send("prompt", { message });
       if (!res.success) throw new Error(res.error);
-      if (!message.startsWith("/")) await waitFor(() => events.filter((e) => e.type === "agent_end").length > before, 60000, "agent_end");
+      if (!message.startsWith("/")) await waitFor(() => events.filter((e) => e.type === "agent_end").length > before, real ? 600000 : 60000, "agent_end");
       return res;
     },
     notices: () => events.filter((e) => e.type === "extension_ui_request" && e.method === "notify").map((e) => e.message),
