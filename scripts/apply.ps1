@@ -125,7 +125,7 @@ function Save-LedgerEntries {
 
 function New-Backup {
     param([string]$PiHomePath, $Items)
-    $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+    $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss-fffffff') + '-' + [guid]::NewGuid().ToString('N')
     $root = Join-Path (Get-PiConfigStateDir) ("backups/" + $timestamp)
     $filesRoot = Join-Path $root 'files'
     New-Item -ItemType Directory -Path $filesRoot -Force | Out-Null
@@ -194,9 +194,9 @@ function Invoke-Restore {
                 Write-WarnLine "備份缺少檔案，跳過：$piRel"
                 continue
             }
-            $destDir = [System.IO.Path]::GetDirectoryName($livePath)
-            if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
             if ($Apply) {
+                $destDir = [System.IO.Path]::GetDirectoryName($livePath)
+                if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
                 [System.IO.File]::Copy($source, $livePath, $true)
                 $ledger[$piRel] = [string](Get-NormalizedHash $livePath)
             }
@@ -230,11 +230,11 @@ function Invoke-Restore {
 }
 
 # ---------------------------------------------------------------------------
-# settings.json 套件合併（只補缺少的項目，不覆寫其他設定）
+# settings.json 套件合併（固定受管來源，保留其他設定）
 # ---------------------------------------------------------------------------
 
 function Merge-SettingsPackages {
-    param([string]$PiHomePath, $Packages)
+    param([string]$PiHomePath, $Packages, [switch]$Write)
 
     $settingsPath = Join-Path (Get-AgentDirPath $PiHomePath) 'settings.json'
     $settings = $null
@@ -245,31 +245,46 @@ function Merge-SettingsPackages {
     }
 
     $existing = @(Get-Prop $settings 'packages' @())
-    $existingNames = @()
-    foreach ($item in $existing) { $existingNames += (ConvertTo-PackageName ([string]$item)) }
-
     $added = @()
+    $pinned = @()
     $kept = @()
     foreach ($pkg in $Packages) {
         $name = [string](Get-Prop $pkg 'name' '')
         if ([string]::IsNullOrWhiteSpace($name)) { continue }
-        if ($existingNames -contains $name) {
+        $version = [string](Get-Prop $pkg 'version' '')
+        $pin = "npm:${name}@${version}"
+        if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9a-z.+-]+)?$' -or (Get-Prop $pkg 'pin') -cne $pin) {
+            throw "無效的套件版本宣告：$name"
+        }
+        $matches = @(for ($i = 0; $i -lt $existing.Count; $i++) {
+            $source = Get-PackageSource $existing[$i]
+            if ($source -clike 'npm:*' -and (ConvertTo-PackageName $source) -ceq $name) { $i }
+        })
+        if ($matches.Count -gt 1) { throw "settings.json 重複宣告套件：$name" }
+        if ($matches.Count -eq 0) {
+            $existing += $pin
+            $added += $name
+            continue
+        }
+        $index = $matches[0]
+        if ((Get-PackageSource $existing[$index]) -ceq $pin) {
             $kept += $name
             continue
         }
-        $existing += [string](Get-Prop $pkg 'pin' ("npm:{0}" -f $name))
-        $added += $name
+        if ($existing[$index] -is [string]) {
+            $existing[$index] = $pin
+        } else {
+            $existing[$index].source = $pin
+        }
+        $pinned += $name
     }
 
-    if ($added.Count -eq 0) {
-        return [pscustomobject]@{ Changed = $false; Added = @(); Kept = $kept; SettingsPath = $settingsPath }
-    }
-
-    $settings | Add-Member -NotePropertyName 'packages' -NotePropertyValue @($existing) -Force
-    if ($Apply) {
+    $changed = $added.Count + $pinned.Count -gt 0
+    if ($changed -and $Write) {
+        $settings | Add-Member -NotePropertyName 'packages' -NotePropertyValue @($existing) -Force
         Write-JsonFile -Path $settingsPath -Object $settings
     }
-    return [pscustomobject]@{ Changed = $true; Added = $added; Kept = $kept; SettingsPath = $settingsPath }
+    return [pscustomobject]@{ Changed = $changed; Added = $added; Pinned = $pinned; Kept = $kept }
 }
 
 function Save-ProviderBaselineOnce {
@@ -349,13 +364,6 @@ try {
 
     $manifest = Read-Manifest $repo
 
-    # 第一次實際套用前，先記錄本機既有 Provider 名稱（不含憑證），供 verify 比對。
-    if ($Apply) {
-        if (Save-ProviderBaselineOnce -PiHomePath $pi) {
-            Write-InfoLine '已建立本機 Provider 基準（供 verify 比對）'
-        }
-    }
-
     # --- 版本相容性 ---------------------------------------------------------
     Write-Section '版本相容性'
     $packagesPath = Join-Path $repo 'manifests/packages.json'
@@ -370,10 +378,10 @@ try {
 
     Write-InfoLine ("目前 Pi 版本：{0}；儲存庫基準：{1}（相容：{2}）" -f $(if ($null -ne $currentVersion) { $currentVersion } else { '無法取得' }), $expectedVersion, $compatible)
 
-    $versionOk = $true
+    $versionOk = $null -ne $currentVersion -and $currentVersion -ceq $compatible
     if ($null -ne $currentVersion -and $compatible -match '^(\d+)\.(\d+)\.x$') {
         $want = ('{0}.{1}.' -f $Matches[1], $Matches[2])
-        if (-not $currentVersion.StartsWith($want)) { $versionOk = $false }
+        $versionOk = $currentVersion.StartsWith($want)
     }
     if (-not $versionOk) {
         if ($StrictVersion) {
@@ -469,21 +477,12 @@ try {
         $pending = @($plan | Where-Object { $_.Status -ne 'same' })
     }
 
-    if ($pending.Count -eq 0) {
-        Write-Section '沒有需要套用的變更'
-        # 仍然記錄「已驗證為相同」的檔案維湊，讓下次儲存庫更新時能判定為安全更新。
-        if ($Apply) {
-            foreach ($item in @($plan | Where-Object { $_.Status -eq 'same' })) {
-                $ledger[$item.RepoRel] = $item.LiveHash
-            }
-            Save-LedgerEntries -PiHomePath $pi -Entries $ledger
-            Write-InfoLine '已更新本機套用紀錄（無檔案變更）'
-        }
-        exit 0
-    }
-
     # --- 套件 ---------------------------------------------------------------
     $packageItems = @(Get-Prop $packagesManifest 'packages' @())
+    $mergePlan = Merge-SettingsPackages -PiHomePath $pi -Packages $packageItems
+    if ($mergePlan.Changed) {
+        Write-InfoLine ("套件固定版本變更：{0}" -f (($mergePlan.Added + $mergePlan.Pinned) -join ', '))
+    }
     $packageActions = @()
     foreach ($pkg in $packageItems) {
         $name = [string](Get-Prop $pkg 'name' '')
@@ -515,7 +514,18 @@ try {
         exit 0
     }
 
+    if ($pending.Count -eq 0 -and -not $mergePlan.Changed -and -not ($InstallPackages -and ($packageActions | Where-Object NeedInstall))) {
+        foreach ($item in @($plan | Where-Object { $_.Status -eq 'same' })) {
+            $ledger[$item.RepoRel] = $item.LiveHash
+        }
+        Save-LedgerEntries -PiHomePath $pi -Entries $ledger
+        exit 0
+    }
+
     # --- 備份 ---------------------------------------------------------------
+    if (Save-ProviderBaselineOnce -PiHomePath $pi) {
+        Write-InfoLine '已建立本機 Provider 基準（供 verify 比對）'
+    }
     Write-Section '備份現有設定'
     $backupItems = @($pending | ForEach-Object { [pscustomobject]@{ PiRel = $_.PiRel; LivePath = $_.LivePath } })
     $settingsLive = Join-Path $agentDir 'settings.json'
@@ -545,9 +555,9 @@ try {
 
     # --- settings.json 套件合併 ---------------------------------------------
     Write-Section '設定檔套件清單'
-    $merge = Merge-SettingsPackages -PiHomePath $pi -Packages $packageItems
+    $merge = Merge-SettingsPackages -PiHomePath $pi -Packages $packageItems -Write
     if ($merge.Changed) {
-        Write-OkLine ("已補上套件宣告：{0}" -f ($merge.Added -join ', '))
+        Write-OkLine ("已固定套件來源：{0}" -f (($merge.Added + $merge.Pinned) -join ', '))
     } else {
         Write-OkLine 'settings.json 已含必要套件，未變更'
     }
@@ -561,9 +571,16 @@ try {
         if ($InstallPackages) {
             foreach ($pkg in $needInstall) {
                 Write-InfoLine ("執行 pi install {0}" -f $pkg.Pin)
-                & pi install $pkg.Pin
-                if ($LASTEXITCODE -ne 0) {
-                    Write-WarnLine ("pi install 失敗（exit {0}）：{1}" -f $LASTEXITCODE, $pkg.Pin)
+                $previousAgentDir = $env:PI_CODING_AGENT_DIR
+                try {
+                    $env:PI_CODING_AGENT_DIR = $agentDir
+                    Push-Location -LiteralPath $pi
+                    try { & pi install $pkg.Pin } finally { Pop-Location }
+                    if ($LASTEXITCODE -ne 0) {
+                        throw ("pi install 失敗（exit {0}）：{1}" -f $LASTEXITCODE, $pkg.Pin)
+                    }
+                } finally {
+                    $env:PI_CODING_AGENT_DIR = $previousAgentDir
                 }
             }
         } else {

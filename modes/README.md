@@ -25,11 +25,15 @@
 | 路徑 | 用途 |
 |---|---|
 | `~/.pi/agent/extensions/mode-switch.ts` | 模式擴充功能（官方 Extension API）。 |
-| `~/.pi/agent/mode-state.json` | 目前模式。 |
+| `~/.pi/agent/mode-state.json` | 尚無模式紀錄時的唯讀預設。缺少或無效時使用 Default。 |
 | `~/.pi/modes/deep-execution/instructions.md` | 深度執行工作規則（每回合附加到系統提示）。 |
 | `~/.pi/modes/deep-execution/skills/ds-*` | deepseek-stack Skills（**不在** Pi 自動掃描目錄）。 |
 
 `ds-*` Skills 只在 `deep-execution` 模式由 `resources_discover` 事件加入；`default` 模式完全不會看到它們。
+
+模式紀錄屬於整個 Session，因此 Tree 內導航維持目前模式。Resume 讀回該 Session 的最新有效紀錄。Fork 繼承 Pi 複製到新 Session 路徑的模式紀錄，未繼承時使用舊檔預設或 Default。Pi 在對話出現第一個使用者或助理訊息前不建立 Session 檔，這段期間的切換可在目前程序 reload 後讀取。新 Session 依舊檔預設初始化。
+
+使用 `PI_CODING_AGENT_DIR` 時，模式資源從指定 agent 目錄旁的 `modes` 載入。隔離測試也應設定獨立的家目錄和工作目錄，並檢查 Pi 的共用 Skills 探索範圍。
 
 ## 來源
 
@@ -52,8 +56,7 @@ pwsh -File "$HOME\Documents\pi-config\scripts\verify.ps1"
 
 1. 刪除 `~/.pi/agent/extensions/mode-switch.ts`。
 2. 刪除 `~/.pi/modes/`（內含 ds-* Skills 與工作規則）。
-3. 刪除 `~/.pi/agent/mode-state.json`。
-4. 執行 `/reload` 或重新啟動 Pi。
+3. 執行 `/reload` 或重新啟動 Pi。保留舊預設檔與既有 Session。
 
 若曾安裝 pi-profile-switch（本機證實無法在 Windows 運作）：
 `npm uninstall -g pi-profile-switch`，並視需要刪除 `~/.pi/agent/skills/profile-config`。

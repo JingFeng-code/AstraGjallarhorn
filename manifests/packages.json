@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "pi": {
     "package": "@earendil-works/pi-coding-agent",
-    "version": "1.5.2",
-    "compatible": "1.5.x"
+    "version": "1.6.0",
+    "compatible": "1.6.0"
   },
   "packages": [
     {

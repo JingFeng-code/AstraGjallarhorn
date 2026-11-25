@@ -66,6 +66,7 @@ function New-TempModeAgentDir {
     New-Item -ItemType Directory -Path (Join-Path $agentDir 'extensions') -Force | Out-Null
     New-Item -ItemType Directory -Path $workDir -Force | Out-Null
     [System.IO.File]::Copy($ModeSwitchPath, (Join-Path $agentDir 'extensions/mode-switch.ts'), $true)
+    Copy-Item -LiteralPath (Join-Path $repo 'modes') -Destination (Join-Path $root 'modes') -Recurse
     Write-JsonFile -Path (Join-Path $agentDir 'mode-state.json') -Object ([ordered]@{ mode = $Mode })
     $script:tempRoots += $root
     return [pscustomobject]@{ Root = $root; AgentDir = $agentDir; WorkDir = $workDir }
@@ -79,7 +80,7 @@ function Test-ModeDiscovery {
         [string[]]$RequiredSkills
     )
     $sandbox = New-TempModeAgentDir -ModeSwitchPath $ModeSwitchPath -Mode $Mode -Label $Mode
-    $commands = Invoke-PiGetCommands -AgentDir $sandbox.AgentDir -UserHome $UserHome -WorkingDirectory $sandbox.WorkDir
+    $commands = Invoke-PiGetCommands -AgentDir $sandbox.AgentDir -UserHome $sandbox.WorkDir -WorkingDirectory $sandbox.WorkDir
     $skillNames = @(Get-SkillCommandNames -Commands $commands)
     $dsSkills = @($skillNames | Where-Object { $_.StartsWith('ds-') } | Sort-Object)
     $hasModeCommand = @($commands | Where-Object { (Get-Prop $_ 'name') -eq 'mode' -and (Get-Prop $_ 'source') -eq 'extension' }).Count -gt 0
@@ -127,7 +128,7 @@ try {
     if ($null -eq $currentVersion) {
         Add-Result -Name 'Pi 版本讀取' -Status 'FAIL' -Detail '無法執行 pi --version'
     } else {
-        $compatibleOk = $true
+        $compatibleOk = $currentVersion -ceq $compatible
         if ($compatible -match '^(\d+)\.(\d+)\.x$') {
             $compatibleOk = $currentVersion.StartsWith(('{0}.{1}.' -f $Matches[1], $Matches[2]))
         }
@@ -179,15 +180,23 @@ try {
     }
 
     $packageItems = @(Get-Prop $packagesManifest 'packages' @())
-    $configuredPackages = @(Get-SettingsPackages $pi | ForEach-Object { ConvertTo-PackageName ([string]$_) })
+    $configuredPackages = @(Get-SettingsPackages $pi | ForEach-Object { Get-PackageSource $_ })
     $packageProblems = @()
     foreach ($pkg in $packageItems) {
         $name = [string](Get-Prop $pkg 'name' '')
         $version = [string](Get-Prop $pkg 'version' '')
         if ([string]::IsNullOrWhiteSpace($name)) { continue }
-        if ($configuredPackages -notcontains $name) {
+        $sources = @($configuredPackages | Where-Object { $_ -clike 'npm:*' -and (ConvertTo-PackageName $_) -ceq $name })
+        $pin = "npm:${name}@${version}"
+        if ($sources.Count -eq 0) {
             $packageProblems += ("$name 未在 settings.json packages 中")
-            continue
+        } elseif ($sources.Count -gt 1) {
+            $packageProblems += ("$name 在 settings.json 重複宣告")
+        } elseif ($sources[0] -cne $pin) {
+            $packageProblems += ("$name 的 settings.json 來源未固定為 $pin")
+        }
+        if ((Get-Prop $pkg 'pin') -cne $pin) {
+            $packageProblems += ("$name 的 manifest pin 與宣告版本不一致")
         }
         $installed = Get-InstalledPackageVersion $pi $name
         if ($null -eq $installed) {

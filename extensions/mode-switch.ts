@@ -8,13 +8,13 @@
  * The mode only controls skills and system-prompt instructions. It never
  * changes the provider, model, thinking level, tools, MCP servers, or session.
  *
- * State lives in <agent-dir>/mode-state.json. Skills stay outside Pi's
+ * State lives in Pi session entries. The legacy file supplies a read-only default. Skills stay outside Pi's
  * auto-discovered directories and are contributed through the official
  * `resources_discover` event only while deep-execution is active, so the
  * default mode never advertises them.
  */
 
-import { readFile, writeFile, mkdir, access } from "node:fs/promises";
+import { readFile, access } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -23,11 +23,12 @@ const HOME = homedir();
 const PI_ROOT = path.join(HOME, ".pi");
 const AGENT_DIR = process.env.PI_CODING_AGENT_DIR ?? path.join(PI_ROOT, "agent");
 const STATE_FILE = path.join(AGENT_DIR, "mode-state.json");
-const MODES_ROOT = path.join(PI_ROOT, "modes");
+const MODES_ROOT = path.join(path.dirname(path.resolve(AGENT_DIR)), "modes");
 const DEEP_DIR = path.join(MODES_ROOT, "deep-execution");
 const DEEP_SKILLS_DIR = path.join(DEEP_DIR, "skills");
 const DEEP_INSTRUCTIONS = path.join(DEEP_DIR, "instructions.md");
 
+const MODE_ENTRY = "astragjallarhorn-mode";
 const MODE_IDS = ["default", "deep-execution"];
 
 const MODE_META = {
@@ -41,7 +42,11 @@ const MODE_META = {
 	},
 };
 
-async function readMode() {
+async function readMode(ctx) {
+	const entry = ctx.sessionManager.getEntries().findLast((entry) =>
+		entry.type === "custom" && entry.customType === MODE_ENTRY && MODE_IDS.includes(entry.data?.mode)
+	);
+	if (entry) return entry.data.mode;
 	try {
 		const raw = JSON.parse(await readFile(STATE_FILE, "utf8"));
 		const mode = typeof raw?.mode === "string" ? raw.mode : "default";
@@ -49,11 +54,6 @@ async function readMode() {
 	} catch {
 		return "default";
 	}
-}
-
-async function writeMode(mode) {
-	await mkdir(path.dirname(STATE_FILE), { recursive: true });
-	await writeFile(STATE_FILE, `${JSON.stringify({ mode }, null, 2)}\n`, "utf8");
 }
 
 function normalizeMode(input) {
@@ -95,7 +95,7 @@ function modelLabel(ctx) {
 }
 
 async function buildStatus(pi, ctx) {
-	const mode = await readMode();
+	const mode = await readMode(ctx);
 	const options = typeof ctx?.getSystemPromptOptions === "function" ? ctx.getSystemPromptOptions() : undefined;
 	const names = skillNames(options);
 	const dsSkills = names.filter((name) => name.startsWith("ds-")).sort();
@@ -112,7 +112,7 @@ async function buildStatus(pi, ctx) {
 		`深度執行指引：${deepActive ? (hasInstructions ? "已套用" : "設定檔缺失") : "未套用"}`,
 		`工具總數：${allTools.length} 個；外掛工具：${pluginTools.length > 0 ? pluginTools.join(", ") : "未偵測到"}`,
 		`Skills 來源：${DEEP_SKILLS_DIR}`,
-		`狀態檔：${STATE_FILE}`,
+		`舊版預設值來源：${STATE_FILE}`,
 		`快捷鍵：Alt+M 切換模式`,
 	];
 	return { mode, report: lines.join("\n") };
@@ -122,13 +122,11 @@ export default function modeSwitchExtension(pi) {
 	// The shortcut cannot reload directly (shortcut handlers get a plain
 	// ExtensionContext). Routing through the /mode command keeps one switching
 	// implementation and lets the command run Pi's reload.
-	async function toggleThroughCommand() {
-		const current = await readMode();
-		const target = current === "deep-execution" ? "default" : "deep-execution";
-		pi.sendUserMessage(`/mode use ${target}`, { expandPromptTemplates: true });
+	function toggleThroughCommand() {
+		pi.sendUserMessage("/mode toggle", { expandPromptTemplates: true });
 	}
 	pi.on("session_start", async (event, ctx) => {
-		const mode = await readMode();
+		const mode = await readMode(ctx);
 		try {
 			ctx.ui?.setStatus?.("mode", `模式: ${labelOf(mode)}`);
 		} catch {
@@ -145,16 +143,16 @@ export default function modeSwitchExtension(pi) {
 
 	// Deep-execution skills are contributed only while that mode is active.
 	// They are not in any auto-discovered directory, so 一般模式 cannot see them.
-	pi.on("resources_discover", async () => {
-		const mode = await readMode();
+	pi.on("resources_discover", async (_event, ctx) => {
+		const mode = await readMode(ctx);
 		if (mode !== "deep-execution") return undefined;
 		if (!(await fileExists(DEEP_SKILLS_DIR))) return undefined;
 		return { skillPaths: [DEEP_SKILLS_DIR] };
 	});
 
 	// Deep-execution working rules are appended to the system prompt per turn.
-	pi.on("before_agent_start", async (event) => {
-		const mode = await readMode();
+	pi.on("before_agent_start", async (event, ctx) => {
+		const mode = await readMode(ctx);
 		if (mode !== "deep-execution") return undefined;
 		try {
 			const rules = (await readFile(DEEP_INSTRUCTIONS, "utf8")).trim();
@@ -197,7 +195,7 @@ export default function modeSwitchExtension(pi) {
 
 			let target;
 			if (subcommand === "toggle") {
-				const current = await readMode();
+				const current = await readMode(ctx);
 				target = current === "deep-execution" ? "default" : "deep-execution";
 			} else if (subcommand === "use") {
 				target = normalizeMode(rest.join(" "));
@@ -212,7 +210,7 @@ export default function modeSwitchExtension(pi) {
 				return;
 			}
 
-			const current = await readMode();
+			const current = await readMode(ctx);
 			if (current === target) {
 				ctx.ui?.notify?.(`目前已是${labelOf(target)}`, "info");
 				return;
@@ -222,7 +220,7 @@ export default function modeSwitchExtension(pi) {
 			// state change and the resource reload always happen together.
 			if (typeof ctx.waitForIdle === "function") await ctx.waitForIdle();
 
-			await writeMode(target);
+			pi.appendEntry(MODE_ENTRY, { mode: target });
 			ctx.ui?.notify?.(`模式已切換：${labelOf(target)}`, "info");
 			// Reload re-runs resources_discover so ds-* skills appear/disappear.
 			// The session, model, and tool state are preserved by Pi's reload.

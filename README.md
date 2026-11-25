@@ -2,7 +2,7 @@
 
 ## 名稱由來｜Astra Mythos 神器系列
 
-**新品牌顯示名稱：AstraGjallarhorn**。目前 GitHub repository 仍是 [`JingFeng-code/AstraRelay`](https://github.com/JingFeng-code/AstraRelay)；這次僅更新品牌文字，尚未改 GitHub Repository 名稱。
+GitHub 儲存庫為 [JingFeng-code/AstraGjallarhorn](https://github.com/JingFeng-code/AstraGjallarhorn)。
 
 - **神器原型**：北歐神話中海姆達爾的號角 Gjallarhorn。
 - **傳說中的能力與考證界線**：在傳說中能響徹眾界、發出警訊；不代表軟體已提供即時廣播功能。
@@ -16,7 +16,7 @@
 
 Pi Agent 的可攜設定同步專案：把「跨電腦可重建」的設定放進 Git，憑證與機器狀態永遠留在本機。
 
-- 來源電腦：Windows + Pi Agent 1.5.2（`@earendil-works/pi-coding-agent`）
+- 來源電腦：Windows + Pi Agent 1.6.0（`@earendil-works/pi-coding-agent`）
 - 目標：多台 Windows 電腦以「匯出 → Git → 套用 → 驗證」的受控單向流程同步
 - 目前階段：單向同步（不做自動覆寫、不做雙向合併）
 
@@ -52,7 +52,7 @@ Pi 若設定了 `PI_CODING_AGENT_DIR`，請以 `-PiHome` 指定實際的 Pi 家�
 理由與防線：
 
 - 憑證屬個人且會輪替，進 Git 等於外洩。
-- `mode-state.json` 是各機目前的模式，不該被覆寫。
+- Session 模式儲存在 Pi 對話紀錄。`mode-state.json` 仍可提供尚無模式紀錄時的本機預設，套用時會保留。
 - `models-store.json` 是 Provider 模型快取（數百 KB），會隨 Provider 而異。
 - `.gitignore` 只是第二道防線；`export.ps1` 會在寫入前**主動掃描憑證樣式並中止**。
 
@@ -75,7 +75,7 @@ Pi 若設定了 `PI_CODING_AGENT_DIR`，請以 `-PiHome` 指定實際的 Pi 家�
 | 作業系統 | Windows 10/11 |
 | PowerShell | 7.x（`pwsh`）或 Windows PowerShell 5.1，兩者皆已實測 |
 | Git | 2.x，且已設定 `user.name` / `user.email` |
-| Pi Agent | 與 `manifests/packages.json` 的 `pi.compatible` 相符（目前 `1.5.x`） |
+| Pi Agent | 與 `manifests/packages.json` 的 `pi.compatible` 相符（本次在 Windows 實測 `1.6.0`） |
 | Node.js | Pi 可執行即可（不需要另外安裝套件） |
 | Pi 套件 | `pi-agnes-tools`、`pi-ollama-cloud`（固定版號，見 `manifests/packages.json`） |
 
@@ -89,7 +89,7 @@ Pi 若設定了 `PI_CODING_AGENT_DIR`，請以 `-PiHome` 指定實際的 Pi 家�
 
 ```powershell
 # 1) 取得儲存庫（僅複製，不動既有設定）
-git clone https://github.com/<你的帳號>/pi-config.git "$HOME\Documents\pi-config"
+git clone https://github.com/JingFeng-code/AstraGjallarhorn.git "$HOME\Documents\pi-config"
 cd "$HOME\Documents\pi-config"
 
 # 2) 先看計畫，不寫入
@@ -114,7 +114,7 @@ pwsh -File scripts\verify.ps1
 - 寫入前把會被覆寫的檔案（含 `settings.json`）備份到
   `$env:LOCALAPPDATA\pi-config\backups\<時間戳>\`。
 - 目標檔案已存在、內容不同、且不屬於上次套用紀錄 → **視為衝突並停止**。
-- 只「補上」缺少的套件宣告，不覆寫 Provider 認證、不改 `auth.json`、不動 `mode-state.json`。
+- 新增缺少的受管套件宣告，並將既有受管項目固定至清單版本。保留資源篩選、其他設定及 Provider 認證。遇到重複宣告會中止。
 - Pi 版本不相容時預設警告；加 `-StrictVersion` 則直接中止。
 
 ### 首次登入 Provider
@@ -192,7 +192,7 @@ pwsh -File scripts\apply.ps1 -Restore -RestoreFrom "$env:LOCALAPPDATA\pi-config\
 
 1. 刪除 `$HOME\.pi\agent\extensions\mode-switch.ts`
 2. 刪除 `$HOME\.pi\modes\`
-3. 刪除 `$HOME\.pi\agent\mode-state.json`
+3. 保留 `$HOME\.pi\agent\mode-state.json` 與既有 Session。
 4. 重新啟動 Pi
 
 ---
@@ -295,7 +295,7 @@ pwsh -File scripts\verify.ps1
 |---|---|
 | `apply.ps1` 說衝突 | 先看 `git diff`，決定保留哪一版；確定採用儲存庫版才加 `-Force` |
 | `verify.ps1` 說檔案不同 | 可能是本機手改，或儲存庫還沒 `git pull`；先 `git pull` 再驗證 |
-| `ds-*` 沒出現 | 確認 `mode-state.json` 為 `deep-execution`，並 `/reload` 或重啟 |
+| `ds-*` 沒出現 | 執行 `/mode use deep-execution`，再用 `/mode status` 檢查 |
 | Alt+M 沒反應 | 需在 Pi 互動介面（TTY）；`verify.ps1` 只能做靜態檢查 |
 | Pi 版本不同 | 本專案不升級核心；請自行升級 Pi 或調整 `manifests/packages.json` |
 | 套件安裝失敗 | `pi list` 檢查來源；確認 npm registry 可連線 |
