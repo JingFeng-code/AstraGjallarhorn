@@ -2,6 +2,8 @@
 
 開發分支為 `feat/gate-recovery-foundation`，基礎修正 commit 為 `8565ad189e601d77fdd4c01d1ebde4927f3a7ddc`。以本分支最新 commit 取得交接文件。起始 `main` 為 `cf0f5248562ca3d061229ec0aa8d2f9b658227e4`。
 
+2026-11-25 在第二台 Windows 電腦以 Pi 1.6.0、Node 24.18.0、PowerShell 7.6.9 重跑 RPC 及同步回歸，兩者皆通過。隔離 Windows TTY 驗證 Alt+M 雙向切換、手動 /reload 保留模式及 /tree 開啟空 Session 的樹狀檢視。正式 Pi 已套用 Session 隔離修正及兩個既有套件的固定來源，`scripts/verify.ps1` 回傳 0（15 PASS、0 FAIL、1 MANUAL）。另外新增 [SQLite 驗證範例](examples/sql/README.md) 及 Windows CI，四項故障注入皆通過正常／失敗／修復序列。下方續接項目中，涉及有訊息的 Tree 分支、Herdr 回報、模型、pstack 工程實測及第三方候選仍待驗收。
+
 - [Gate 0–2 首輪盤點](docs/verification/gate-0-2.md)
 - [Gate Recovery 修正與驗證證據](docs/verification/gate-recovery.md)
 
