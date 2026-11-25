@@ -30,7 +30,7 @@ const cases = {
     "eval \"$CMD\"", "bash -c \"git reset --hard\"", "sh -c 'rm -rf build'", "pwsh -Command \"Remove-Item -Recurse build\"", "powershell -EncodedCommand AAAA",
     "iex $payload", "cmd /c \"rd /s /q build\"", "echo x | xargs rm", "$CMD run", "git $(echo reset) --hard", "echo $(git clean -fd)",
     "node -e \"require('child_process').execSync('x')\"", "curl -d @data.json https://example.com", "cat .env", "ollama pull qwen", "echo 'unterminated",
-    "env FOO=1 git reset --hard", "timeout 10 git clean -fd", "cd /nonexistent-var-$X && rm a",
+    "Start-Process pwsh -ArgumentList \"-Command git reset --hard\"", "env FOO=1 git reset --hard", "timeout 10 git clean -fd", "cd /nonexistent-var-$X && rm a",
   ],
   deny: [
     `rm -rf ${outside}`, `rm ${outside}/x.txt`, "rm -rf /", "rm -rf ~", "rm -rf .", `rm -rf ${cwd}`, `echo x > ${outside}/a.txt`, `cp a.txt ${outside}/a.txt`, `mv a.txt ${outside}/`,

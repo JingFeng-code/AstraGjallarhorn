@@ -303,7 +303,13 @@ export function analyzeCommand(command, ctx, depth = 0) {
     while (words.length && (wrappers.has(baseName(words[0])) || baseName(words[0]) === "env")) {
       const w = baseName(words[0]); words.shift();
       if (w === "env") while (words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[0]) || flagOf(words[0]))) words.shift();
-      if (w === "start-process") { while (words.length && flagOf(words[0])) words.shift(); }
+      if (w === "start-process") {
+        while (words.length && flagOf(words[0]) && !/^-(argumentlist|args)$/i.test(words[0])) words.shift();
+        const inner = words.filter((x) => !/^-(argumentlist|filepath|nonewwindow|wait|passthru|windowstyle|verb)$/i.test(x)).join(" ");
+        result = worse(result, analyzeCommand(inner, { ...ctx, cwd: state.cwd }, depth + 1));
+        words = [];
+        break;
+      }
     }
     if (words.length === 0) continue;
     if (baseName(words[0]) === "timeout" && words.length > 2) words.splice(0, /^\d/.test(words[1]) ? 2 : 1);

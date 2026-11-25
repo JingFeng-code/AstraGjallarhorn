@@ -10,13 +10,13 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 // script: array of steps. step = { text } | { tools: [{name, args}] } | function(requestBody, n) => step
-export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false, real }) {
+export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false, real, formal = false }) {
   const cwd = baseDir ?? await mkdtemp(path.join(tmpdir(), "astra-rpc-"));
-  const agent = path.join(cwd, "agent");
+  const agent = formal ? path.join((await import("node:os")).homedir(), ".pi", "agent") : path.join(cwd, "agent");
   const work = path.join(cwd, "work");
   await mkdir(path.join(agent, "extensions"), { recursive: true });
   await mkdir(work, { recursive: true });
-  for (const name of extensions) await copyFile(path.join(repoRoot, "extensions", name), path.join(agent, "extensions", name));
+  if (!formal) for (const name of extensions) await copyFile(path.join(repoRoot, "extensions", name), path.join(agent, "extensions", name));
   for (const [rel, content] of Object.entries(extraFiles)) {
     await mkdir(path.dirname(path.join(cwd, rel)), { recursive: true });
     await writeFile(path.join(cwd, rel), content);
@@ -44,14 +44,14 @@ export async function startPi({ cli, script, extensions, extraFiles = {}, env = 
     res.end(`data: ${chunk(first, null)}\n\ndata: ${chunk({}, tools.length ? "tool_calls" : "stop")}\n\ndata: [DONE]\n\n`);
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  await writeFile(path.join(agent, "models.json"), JSON.stringify(real ? { providers: { ollama: { baseUrl: "http://127.0.0.1:11434/v1", api: "openai-completions", apiKey: "ollama", models: [{ id: real.model, contextWindow: 32768, reasoning: false, input: ["text"] }] } } } : {
+  if (!formal) await writeFile(path.join(agent, "models.json"), JSON.stringify(real ? { providers: { ollama: { baseUrl: "http://127.0.0.1:11434/v1", api: "openai-completions", apiKey: "ollama", models: [{ id: real.model, contextWindow: 32768, reasoning: false, input: ["text"] }] } } } : {
     providers: { fixture: {
       baseUrl: `http://127.0.0.1:${server.address().port}/v1`, api: "openai-completions", apiKey: "fixture-only", models: [{ id: "fixture" }],
     } },
   }));
   const child = spawn(process.execPath, [
-    path.resolve(cli), "--offline", "--no-mcp", "--no-skills", "--no-context-files", "--mode", "rpc", "--provider", real ? "ollama" : "fixture", "--model", real ? real.model : "fixture", ...args,
-  ], { cwd: work, env: { ...process.env, PI_CODING_AGENT_DIR: agent, ...env } });
+    path.resolve(cli), ...(formal ? ["--no-session", "--no-mcp", "--no-context-files"] : ["--offline", "--no-mcp", "--no-skills", "--no-context-files"]), "--mode", "rpc", "--provider", real ? "ollama" : "fixture", "--model", real ? real.model : "fixture", ...args,
+  ], { cwd: work, env: formal ? { ...process.env, ...env } : { ...process.env, PI_CODING_AGENT_DIR: agent, ...env } });
   child.stderr.on("data", (d) => process.stderr.write(d));
   const rl = createInterface({ input: child.stdout });
   const events = [];

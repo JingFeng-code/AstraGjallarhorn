@@ -351,6 +351,61 @@ Pi 的 `/skill:architect <設計題目>` 比較模組邊界與相依方向。此
 
 `/skill:correct <重現命令、失敗證據及目標檔案>` 引導根因修復。使用 Better Edit 替換一行時，把實際的同一錨點放進兩個端點，複製目標行後只改出錯的值。保留既有回歸驗證，並以原命令確認修正。
 
-手動 Plan／Diff Review 可向 Pi 提供已擷取的計畫、需求及 `git diff`。請模型指出阻擋問題、應保留的測試及實際檔案位置。使用 Review 工具設定可限制模型工具。自動擷取 diff 的流程另計。
+Plan 審查可向 Pi 提供計畫與需求。Diff 審查見下方「Diff Review」：模型用唯讀的 `review_diff` 自行取得 staged／unstaged diff，不再需要手動貼上。
 
-若專案沒有任務 Checkpoint，可在專用 Git 工作樹執行 `git stash push --include-untracked -m "checkpoint"`。保存該 stash 的識別碼，只在核對目前工作樹乾淨後用 `git stash apply <id>`。先以 `git status --short` 驗證，還原後核對檔案。此手動流程已在合成工作樹驗證 tracked 和 untracked 內容。
+Checkpoint 已自動化，見下方「自動 Checkpoint」。手動 `git stash push --include-untracked` 流程仍可用，但不再是建議做法。
+
+---
+
+## 11. v0.2 完整能力
+
+v0.2 把下列能力加入正式 Pi。全部是第一方擴充功能（`extensions/*.js`，由 `manifests/pi-config.json` 同步）。逐項驗收證據見 [能力驗收](docs/verification/capability-completion.md#v02-release-closure)，完整操作見 [操作手冊](docs/operations-manual.md)。
+
+| 能力 | 擴充功能 | 指令 | 預設 |
+|---|---|---|---|
+| TypeScript／C# LSP | `lsp.js` | 工具 `lsp_diagnostics`、`lsp_definition`、`lsp_references`；`/lsp status|stop` | 開，伺服器不自動下載 |
+| 通用安全指令防護 | `command-guard.js` | `/guard status|enforce|strict|off|allow <dir>|clear` | enforce |
+| 自動 Checkpoint | `checkpoint.js` | `/checkpoint status|on|off|now|list|diff <id>|restore <id> [--apply] [--force]` | 開 |
+| 任務恢復與 Timeout | `task-recovery.js` | `/task status|list|resume|discard|timeout <分鐘>|orphans [kill]` | 開，Timeout 關 |
+| Herdr 自動交接 | `handoff.js` | `/handoff-auto on <terminal> --no-extra-cost|off|status|check` | **關**（手動交接） |
+| Diff Review | `diff-review.js` | 工具 `review_diff`；`/review-diff [重點]` | Review 工具設定包含 |
+
+### LSP
+
+- TypeScript：`typescript-language-server@6.1.0` 與 `typescript@5.9.3` 固定安裝在 Pi 私有目錄 `~/.pi/agent/lsp`（兩個套件、零依賴、`npm audit` 0 筆）。安裝：`npm install --prefix "$env:USERPROFILE/.pi/agent/lsp" --ignore-scripts --save-exact --no-audit --no-fund typescript@5.9.3 typescript-language-server@6.1.0`。`verify.ps1` 檢查版本。
+- C#：使用 Microsoft C# VS Code 擴充功能（`ms-dotnettools.csharp`）隨附、有 Authenticode 簽章的 Roslyn Language Server，從 `~/.vscode/extensions/ms-dotnettools.csharp-*/.roslyn` 或環境變數 `ASTRA_ROSLYN_LS` 找到。已用 2.160.4 與 .NET SDK 10.0.401 實測。找不到時工具回報 NOT FOUND，不會下載。
+- 診斷結果有三種：`ERRORS`／`CLEAN`／`INCONCLUSIVE`。只有伺服器對目前檔案內容明確回報空清單才是 `CLEAN`；沒有回應就是 `INCONCLUSIVE`，不可當作通過，改用專案編譯指令。
+- 每次呼叫都從磁碟重新同步文件，所以 Better Edit、Hashline、bash 或外部程式的修改都看得到。
+- Roslyn 的自動 NuGet restore 被關閉，專案需先自行 `dotnet restore`。工具只接受工作目錄內的檔案，伺服器程序在 Pi 結束、`/lsp stop` 或閒置 10 分鐘後終止。
+
+### 通用安全指令防護
+
+`command-guard.js` 在每次 `bash`、`write`、`edit`、`read` 工具呼叫前，用確定性規則判斷：允許、需要人工核准（`ask`）或拒絕（`deny`）。無法判斷且風險高的呼叫走 `ask`；沒有互動介面時 `ask` 視為拒絕。`/guard strict` 讓所有 `ask` 直接拒絕。
+
+- 拒絕：工作目錄與 `/guard allow` 授權目錄以外的寫入或刪除、整個根目錄／家目錄刪除、其他 Agent 設定（`~/.claude`、`~/.codex`、`~/.config/opencode`、`herdr`、專案內 `.claude`／`.codex`／`.opencode`）的修改、Pi 自己的 `settings.json` 與防護擴充、憑證與金鑰（`auth.json`、`.ssh`、`.aws`、`.npmrc`、`.git-credentials`…）、`git config --global`、登錄檔／服務／排程／防火牆等系統設定、`curl … | sh`。
+- 需核准：`git reset --hard`、`clean -f`、`checkout .`、強制推送、刪除分支或 stash、`rebase`、遞迴／萬用字元／大量刪除、全域套件安裝（`npm -g`、`pip`、`winget`…）、`eval`、`bash -c` 內含可疑指令、`-EncodedCommand`、計算出的指令名稱、上傳本機資料的 `curl`、專案內 `.env`。
+- 允許：一般 `git status/diff/log/add/commit`、`npm test/ci/run`、`dotnet build/test`、`eslint`、`tsc`、專案內的檔案讀寫。
+- 它解析指令文字，會處理 `;` `&&` `||` `|`、引號、`$()`、反引號、`bash -c`、`pwsh -Command`、`cmd /c`、`env`、`timeout`、`xargs`、`cd` 後的相對路徑。**它不是 OS Sandbox**：執行檔案（`node script.js`）時看不到腳本內容；變數展開、別名與模型想像不到的繞法可能漏掉。需要硬隔離時請使用容器、VM 或 Windows Sandbox。
+
+### 自動 Checkpoint
+
+每個任務開始前（`agent_start`）與結束時，`checkpoint.js` 用私有暫存 index 把整個工作樹（含 untracked，遵守 `.gitignore`）寫成 `refs/astra/checkpoints/<id>/pre|post`。不碰你的 index、分支、stash 或檔案；失敗只提醒，任務照常進行（`ASTRA_CHECKPOINT_TIMEOUT_MS` 預設 30 秒）。保留最近 30 個。
+
+- 任務開始時若發現工作樹自上次任務後被外部改動，會列出檔案。
+- `/checkpoint restore <id>` 預設只預覽：只列出「這個任務改變的路徑」。任務結束後又被別人改過的檔案標為 SKIP，除非加 `--force`。不屬於任務的修改（其他 Agent 的檔案）永遠不碰。加 `--apply` 才寫入，並先建立 `<id>-before-restore` 安全 Checkpoint。
+- 還原到的是**任務開始前**的狀態（包含你當時未提交的修改），不是 `HEAD`。
+- 限制：多個 Agent 同時修改同一個工作樹時無法分辨誰改了哪個檔案；真正隔離請給每個 Agent 獨立的 git worktree。
+
+### 任務恢復
+
+`task-recovery.js` 在 `~/.pi/agent/tasks/` 保存任務日誌（提示、每個工具呼叫與結果、擁有者程序）。Pi 異常結束後，新 Pi 在同一目錄啟動時把持有者已死的任務標為 `interrupted` 並提醒。`/task resume` 不會假設任何作業系統程序可原地恢復，而是把已完成的呼叫、結果未知的呼叫（標示「可能已改變狀態」或「唯讀可重做」）與規則交給模型：先檢查真實狀態，不重做已完成工作，不盲目重跑有外部副作用的操作。同一任務只能續接一次（`--again` 需人工確認），並用鎖防止兩個 Pi 同時續接。`/task timeout <分鐘>`（或 `ASTRA_TASK_TIMEOUT_MIN`）逾時取消，`/task orphans` 列出死亡 Pi 留下的子程序，`kill` 需確認。
+
+### Herdr 自動交接
+
+預設關閉，需要 `/retry-limit on`（或 `strict`）搭配。`/handoff-auto on t12 --no-extra-cost` 先檢查接收者存在、活著、閒置、工作目錄與目前相同，記錄它的 Agent 種類，再啟用。第三次符合條件的失敗讓 Pi 停止後：寫摘要檔到 `~/.pi/agent/handoffs/`（任務、失敗呼叫、git 狀態、Checkpoint），用 `hc send <terminal> "<短指令>" --if idle` 通知接收者，並確認接收者的狀態變為 working 或 turn 增加才算接收。任何一步失敗都保留摘要並停止，**不重試**。
+
+`--no-extra-cost` 是你對接收者不產生額外費用的聲明；擴充功能無法從 hc 得知計費，只在送出前確認接收者的 Agent 種類沒有被換掉。防止重複：每次失敗只送一次（帳本記錄「送出中」，崩潰後也不重送）；接收者的任務若帶有交接標記則不會再交接（防循環）；每小時最多 3 次。不修改 Herdr、hc 或其他 Agent 的設定。
+
+### Diff Review
+
+`review_diff` 只執行固定的 git 讀取命令：staged diff、unstaged diff、untracked 清單與範圍報告（變更檔案、有原始碼變更卻沒有測試變更的 `REGRESSION-TEST GAP`、部分暫存）。結果附上工作樹指紋，審查前後不同會標為錯誤。`/review-diff [重點]` 暫時把工具限縮為 `read`、`grep`、`find`、`ls`、`review_diff` 並要求模型對照專案的 `AGENTS.md` 檢查架構規則，結束後恢復原工具。

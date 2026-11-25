@@ -17,10 +17,12 @@ const IDENTITY = {
   GIT_COMMITTER_NAME: "Astra Checkpoint", GIT_COMMITTER_EMAIL: "checkpoint@astra.invalid",
 };
 
-function git(cwd, args, { env = {}, input, binary = false } = {}) {
+const SNAPSHOT_TIMEOUT_MS = Number(process.env.ASTRA_CHECKPOINT_TIMEOUT_MS) || 30000;
+
+function git(cwd, args, { env = {}, input, binary = false, timeout = 0 } = {}) {
   return new Promise((resolve, reject) => {
     const child = execFile("git", args, {
-      cwd, env: { ...process.env, ...env }, maxBuffer: 256 * 1024 * 1024, encoding: binary ? "buffer" : "utf8", windowsHide: true,
+      cwd, env: { ...process.env, ...env }, maxBuffer: 256 * 1024 * 1024, encoding: binary ? "buffer" : "utf8", windowsHide: true, timeout,
     }, (error, stdout, stderr) => {
       if (error) { error.stderr = String(stderr); reject(error); } else resolve(stdout);
     });
@@ -40,8 +42,8 @@ export async function snapshotTree(root) {
   try {
     let hasHead = true;
     try { await git(root, ["rev-parse", "--verify", "-q", "HEAD"]); } catch { hasHead = false; }
-    if (hasHead) await git(root, ["read-tree", "HEAD"], { env });
-    await git(root, ["add", "-A", "--", "."], { env });
+    if (hasHead) await git(root, ["read-tree", "HEAD"], { env, timeout: SNAPSHOT_TIMEOUT_MS });
+    await git(root, ["add", "-A", "--", "."], { env, timeout: SNAPSHOT_TIMEOUT_MS });
     // A nested repository would be stored as a gitlink, which cannot be restored. Report it.
     return (await git(root, ["write-tree"], { env })).trim();
   } finally {
