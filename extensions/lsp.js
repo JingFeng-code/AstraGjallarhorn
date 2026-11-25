@@ -7,7 +7,7 @@
 // the answer is "inconclusive"; every server process is terminated on shutdown.
 import { spawn, execFile } from "node:child_process";
 import { readFile, readdir, mkdtemp, rm } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -142,6 +142,7 @@ export class LspClient {
   }
   // Make the server's view of `file` equal to the bytes on disk. Returns { uri, version, changed }.
   async sync(file, languageId) {
+    try { file = realpathSync.native(file); } catch { /* keep as given */ }
     const uri = toUri(file);
     const text = await readFile(file, "utf8");
     const known = this.docs.get(uri);
@@ -300,6 +301,9 @@ export async function workspaceFor(language, file, cwd) {
 export class LspManager {
   constructor({ idleMs = 10 * 60_000 } = {}) { this.clients = new Map(); this.idleMs = idleMs; }
   async get(language, file, cwd) {
+    // Long, canonical paths only: tsserver's file watcher aborts on Windows 8.3 short names (RUNNER~1).
+    const canon = (p) => { try { return realpathSync.native(p); } catch { return p; } };
+    file = canon(file); cwd = canon(cwd);
     const ws = await workspaceFor(language, file, cwd);
     const key = `${language}|${norm(ws.root)}`;
     let entry = this.clients.get(key);
@@ -309,6 +313,7 @@ export class LspManager {
       entry.starting.catch(() => this.clients.delete(key));
     }
     const client = await entry.starting;
+    if (client.exited) { this.clients.delete(key); return this.get(language, file, cwd); } // server died: start a fresh one
     clearTimeout(entry.timer);
     entry.timer = setTimeout(() => this.stop(key), this.idleMs);
     entry.timer.unref?.();
