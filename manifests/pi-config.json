@@ -28,6 +28,18 @@
   "entries": [
     {
       "type": "file",
+      "source": "agent/extensions/hashline.js",
+      "target": "extensions/hashline.js",
+      "note": "Pi 按需 Hashline 替換與過期檢查"
+    },
+    {
+      "type": "file",
+      "source": "agent/extensions/tool-profile.js",
+      "target": "extensions/tool-profile.js",
+      "note": "Pi 按需 Local、Cloud、Review 模型工具設定"
+    },
+    {
+      "type": "file",
       "source": "agent/extensions/mode-switch.ts",
       "target": "extensions/mode-switch.ts",
       "note": "自訂模式切換擴充功能（取代無法在 Windows 運作的 pi-profile-switch）"

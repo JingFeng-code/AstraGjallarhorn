@@ -313,6 +313,22 @@ pwsh -File scripts\verify.ps1
 
 ## 工程驗證範例
 
+### Hashline 編輯
+
+在 Pi 輸入 `/hashline {"file":"examples/sql/001-create-notes.sql","start":1}`，取得整檔 SHA-256 及行錨點。複製實際回傳的值到下列命令。省略 `last` 只替換一行，`lines: []` 移除指定範圍。
+
+```text
+/hashreplace {"file":"examples/sql/001-create-notes.sql","hash":"<SHA-256>","first":"<第一行錨點>","last":"<最後一行錨點>","lines":["<新內容>"]}
+```
+
+僅接受目前目錄內、至多 1 MiB 的 UTF-8 檔案。讀取每次最多顯示 50 行，每行預覽至 300 字元。檔案任何位元組改變時需重新讀取。寫入前會再比對雜湊，並以同目錄暫存檔替換；這個檢查與替換之間仍有極短的競爭視窗，使用同一檔案的獨立寫入程序需要協調。
+
+### 工具設定
+
+`/tool-profile local` 保留初始工具中的 `read`、`edit`、`write`、`bash`。 `/tool-profile cloud` 保留 `read`、`edit`、`write`。 `/tool-profile review` 保留 `read`、`grep`、`find`、`ls` 中原本啟用的項目。 `/tool-profile status` 顯示清單，`/tool-profile restore` 恢復切換前集合。
+
+這些指令只調整目前 Pi 擴充實例的模型工具。模型與 Thinking Level 由原生選擇器獨立管理。Review 限制模型工具，使用者仍可執行手動命令，亦不構成程序隔離。
+
 從儲存庫根目錄執行 `pwsh -NoProfile -File scripts/verify-project.ps1`。只需驗證一組時，加上 `-Suite sql`、`-Suite dotnet` 或 `-Suite vue`。先按各範例說明準備依賴。命令遇到第一個失敗便回傳該步驟的退出碼。
 
 在 Pi 裡，`/verify` 提供驗證和失敗交接指引。可用 `!pwsh -NoProfile -File scripts/verify-project.ps1` 直接執行，不消耗模型請求。三個 Windows CI 工作各執行相同入口的一組測試。PR 是否強制要求這些工作通過，取決於 GitHub 的分支規則。
