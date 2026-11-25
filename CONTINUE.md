@@ -10,6 +10,8 @@
 
 pstack `architect` 已同步至正式 Pi 的 `agent/skills/architect`。隔離 Pi 使用本機 Ollama 的 `mimo-v2.6-agent32k:latest` 完成 SQLite 模組邊界與相依方向比較，指定的驗證命令已獨立執行並回傳 0。三次工具讀取中兩次成功，一次將目錄當作檔案讀取而失敗。正式 Pi 透過 RPC 查得 `skill:architect`，其 frontmatter 設定由使用者明確呼叫才載入。正式套用只有新增技能與隨附 MIT 授權兩個檔案。隔離測試可探索三個 pstack 指令，`correct` 的兩次實測分別因執行時間與重複呼叫不可用工具而停止。
 
+`create-verification-skill` 的隔離模型輸出使用範例 CLI 未提供的參數，未放行。還原增加套用後原始位元組 SHA-256 比對。同步回歸確認擴充功能或 settings.json 有後續修改時，還原回傳 3，保留全部檔案。第二台電腦前兩次正式備份為這項修正前的格式，仍可預覽。正式復原舊備份前，先手動核對列出的衝突。
+
 - [Gate 0–2 首輪盤點](docs/verification/gate-0-2.md)
 - [Gate Recovery 修正與驗證證據](docs/verification/gate-recovery.md)
 

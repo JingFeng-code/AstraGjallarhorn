@@ -181,6 +181,8 @@ pwsh -File scripts\apply.ps1 -Restore -RestoreLatest -Apply
 pwsh -File scripts\apply.ps1 -Restore -RestoreFrom "$env:LOCALAPPDATA\pi-config\backups\20260101-120000" -Apply
 ```
 
+還原會先核對套用後的 SHA-256。任何待還原檔案出現衝突時，實際還原回傳 3 並在寫入前停止。舊備份仍可預覽，但缺少套用後雜湊的變動檔案也視為衝突。若已逐一比對並另行備份本機修改，才使用 `-Restore -Apply -Force`。
+
 還原會：
 
 - 把備份中的檔案寫回。

@@ -34,6 +34,7 @@ try {
         throw 'Pinned settings did not preserve existing configuration'
     }
     $backup = (Get-ChildItem (Join-Path $state 'pi-config/backups') -Directory).FullName
+    $pinnedBytes = [IO.File]::ReadAllBytes($settings)
     $pinnedHash = (Get-FileHash $settings).Hash
     Invoke-Check 'export' 0 @{DryRun=$true; NoDiff=$true}
     $exportRepo = Join-Path $root 'export-repo'
@@ -51,16 +52,37 @@ try {
     Invoke-Check 'verify' 0 @{}
     Set-Content -LiteralPath $settings -Value $initial
     Invoke-Check 'verify' 1 @{}
-    $result | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $settings
-    $pinnedHash = (Get-FileHash $settings).Hash
+    [IO.File]::WriteAllBytes($settings, $pinnedBytes)
     $extension = Join-Path $agent 'extensions/mode-switch.ts'
     Add-Content -LiteralPath $extension -Value '// Local edit that apply must preserve'
     $editedHash = (Get-FileHash $extension).Hash
     Invoke-Check 'apply' 3 @{StrictVersion=$true; Apply=$true}
     if ((Get-FileHash $extension).Hash -ne $editedHash) { throw 'Apply overwrote a local edit' }
+    Invoke-Check 'apply' 3 @{Restore=$true; RestoreFrom=$backup; Apply=$true}
+    if ((Get-FileHash $extension).Hash -ne $editedHash -or (Get-FileHash $settings).Hash -ne $pinnedHash) {
+        throw 'Restore changed files despite a conflict'
+    }
     Copy-Item -LiteralPath (Join-Path $repo 'extensions/mode-switch.ts') -Destination $extension -Force
+    Add-Content -LiteralPath $settings -Value ' '
+    $editedSettingsHash = (Get-FileHash $settings).Hash
+    Invoke-Check 'apply' 3 @{Restore=$true; RestoreFrom=$backup; Apply=$true}
+    if (!(Test-Path $extension) -or (Get-FileHash $settings).Hash -ne $editedSettingsHash) {
+        throw 'Restore overwrote settings or removed an extension despite a settings conflict'
+    }
+    [IO.File]::WriteAllBytes($settings, $pinnedBytes)
     Invoke-Check 'apply' 0 @{Restore=$true; RestoreFrom=$backup}
     if ((Get-FileHash $settings).Hash -ne $pinnedHash) { throw 'Restore dry run wrote settings' }
+    $backupManifest = Join-Path $backup 'backup.json'
+    $backupManifestBytes = [IO.File]::ReadAllBytes($backupManifest)
+    $legacyBackup = Get-Content -LiteralPath $backupManifest -Raw | ConvertFrom-Json
+    foreach ($record in $legacyBackup.files) { $record.PSObject.Properties.Remove('appliedHash') }
+    $legacyBackup | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $backupManifest
+    Invoke-Check 'apply' 0 @{Restore=$true; RestoreFrom=$backup}
+    Invoke-Check 'apply' 3 @{Restore=$true; RestoreFrom=$backup; Apply=$true}
+    if (!(Test-Path $extension) -or (Get-FileHash $settings).Hash -ne $pinnedHash) {
+        throw 'A legacy backup without applied hashes changed live files'
+    }
+    [IO.File]::WriteAllBytes($backupManifest, $backupManifestBytes)
     Invoke-Check 'apply' 0 @{Restore=$true; RestoreFrom=$backup; Apply=$true}
     if ((Get-FileHash $settings).Hash -ne $initialHash -or (Test-Path (Join-Path $agent 'extensions/mode-switch.ts'))) {
         throw 'Restore did not recover the original fixture'
@@ -69,7 +91,7 @@ try {
     $duplicateHash = (Get-FileHash $settings).Hash
     Invoke-Check 'apply' 1 @{StrictVersion=$true; Apply=$true}
     if ((Get-FileHash $settings).Hash -ne $duplicateHash) { throw 'Duplicate declarations were modified' }
-    Write-Output 'PASS: apply dry run, version pin merge, export dry run, verify, conflict protection, backup, restore, duplicate protection'
+    Write-Output 'PASS: apply dry run, version pin merge, export dry run, verify, apply and restore conflict protection, backup, restore, duplicate protection'
 } finally {
     $env:LOCALAPPDATA = $originalAppData
     if (Test-Path -LiteralPath $root) {

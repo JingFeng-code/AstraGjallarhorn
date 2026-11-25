@@ -160,6 +160,14 @@ function New-Backup {
     return $root
 }
 
+function Get-RestoreFileHash {
+    param([string]$Path)
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+        return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+    }
+    return $null
+}
+
 function Invoke-Restore {
     param([string]$PiHomePath, [string]$BackupRoot)
 
@@ -178,11 +186,40 @@ function Invoke-Restore {
 
     $records = @(Get-Prop $backup 'files' @())
     $filesRoot = Join-Path $BackupRoot 'files'
+    $changedRecords = @()
+    $conflicts = @()
+    foreach ($record in $records) {
+        $piRel = [string](Get-Prop $record 'piRel' '')
+        if ([string]::IsNullOrWhiteSpace($piRel)) { continue }
+        $livePath = Join-RepoPath -Base $PiHomePath -Relative $piRel
+        if ((Test-Path -LiteralPath $livePath) -and -not (Test-Path -LiteralPath $livePath -PathType Leaf)) {
+            throw "還原目標不是檔案：$piRel"
+        }
+        $liveHash = Get-RestoreFileHash $livePath
+        $backupHash = $null
+        if (Get-Prop $record 'existed' $false) {
+            $source = Join-RepoPath -Base $filesRoot -Relative $piRel
+            $backupHash = Get-RestoreFileHash $source
+            if ($null -eq $backupHash) { throw "備份缺少檔案：$piRel" }
+        }
+        if ($liveHash -eq $backupHash) { continue }
+        if ($null -eq $record.PSObject.Properties['appliedHash']) {
+            $conflicts += "$piRel（備份缺少套用後雜湊）"
+        } elseif ($liveHash -ne $record.appliedHash) {
+            $conflicts += "$piRel（套用後已變更）"
+        }
+        $changedRecords += $record
+    }
+    foreach ($conflict in $conflicts) { Write-WarnLine "還原衝突：$conflict" }
+    if ($Apply -and $conflicts.Count -gt 0 -and -not $Force) {
+        Write-FailLine '還原已停止，未寫入任何檔案。請先比對並備份本機修改。'
+        exit 3
+    }
     $ledger = Read-LedgerEntries -PiHomePath $PiHomePath
     $restoreCount = 0
     $deleteCount = 0
 
-    foreach ($record in $records) {
+    foreach ($record in $changedRecords) {
         $piRel = [string](Get-Prop $record 'piRel' '')
         if ([string]::IsNullOrWhiteSpace($piRel)) { continue }
         $existed = [bool](Get-Prop $record 'existed' $false)
@@ -190,10 +227,6 @@ function Invoke-Restore {
 
         if ($existed) {
             $source = Join-RepoPath -Base $filesRoot -Relative $piRel
-            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
-                Write-WarnLine "備份缺少檔案，跳過：$piRel"
-                continue
-            }
             if ($Apply) {
                 $destDir = [System.IO.Path]::GetDirectoryName($livePath)
                 if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
@@ -590,6 +623,14 @@ try {
             }
         }
     }
+
+    $backupManifestPath = Join-Path $backupRoot 'backup.json'
+    $backupManifest = Read-JsonFile $backupManifestPath
+    foreach ($record in $backupManifest.files) {
+        $livePath = Join-RepoPath -Base $pi -Relative $record.piRel
+        $record | Add-Member -NotePropertyName appliedHash -NotePropertyValue (Get-RestoreFileHash $livePath)
+    }
+    Write-JsonFile -Path $backupManifestPath -Object $backupManifest
 
     Write-Section '完成'
     Write-InfoLine ("已寫入 {0} 個檔案" -f $applied)
