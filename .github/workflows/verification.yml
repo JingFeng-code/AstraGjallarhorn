@@ -18,6 +18,21 @@ jobs:
           node-version: '24.18.0'
       - run: ./scripts/verify-project.ps1 -Suite sql
       - run: node --test tests/hashline.test.mjs tests/tool-profile.test.mjs tests/retry-limit.test.mjs
+      - name: Pi RPC and sync regression
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'astra-pi'
+          $pin = Get-Content manifests/packages.json -Raw | ConvertFrom-Json
+          npm install --prefix $runtime --ignore-scripts --no-audit --no-fund "$($pin.pi.package)@$($pin.pi.version)"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:PATH = "$(Join-Path $runtime 'node_modules/.bin');$env:PATH"
+          $cli = Join-Path $runtime "node_modules/$($pin.pi.package)/dist/cli.js"
+          node tests/mode-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/retry-limit-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          pwsh -NoProfile -File tests/sync.ps1
+          exit $LASTEXITCODE
   dotnet:
     runs-on: windows-latest
     steps:

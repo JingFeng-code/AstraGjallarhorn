@@ -52,3 +52,5 @@ pwsh -NoProfile -File tests/sync.ps1
 - Sandbox 已通過離線 Windows 執行驗收，僅用於開發測試。跨機正式流程維持先 dry-run，確認範圍後 Apply，再執行 Verify。
 
 早期 Gate 歷史和已完成的測試保存在上方連結，不需要重新驗證 Sandbox 啟用或重做已通過的候選測試。
+
+本輪正式更新 Retry Limit。設定隨 Session 保留，新增明確選用的 strict 與手動 handoff。正式安裝檔副本透過 Pi RPC 通過 reload、三個不同 shell 非零退出碼、沒有第 4 次請求、摘要讀取及新 Session 預設關閉。SQL CI 加入固定 Pi 1.6.0 的模式、Retry Limit RPC 與同步回歸。Context Mode 2.2.3 已在離線 Sandbox 經正常 Pi 調度完成合成內容索引與搜尋。正式環境的攔截政策、Compaction、恢復與真實模型效益仍待確認。

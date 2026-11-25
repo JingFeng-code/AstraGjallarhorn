@@ -313,7 +313,9 @@ pwsh -File scripts\verify.ps1
 
 ## 工程驗證範例
 
-`/retry-limit on` 可在同一回合第三次相同失敗工具呼叫後中止執行，並提示檢查最後錯誤。`/retry-limit status` 查詢，`/retry-limit off` 關閉。預設關閉，每次新回合重置計數。它監聽 Pi 的工具執行事件，涵蓋已驗證的不存在工具錯誤。變更參數的呼叫分開計數，沒有工具執行事件的錯誤不在此上限內。
+`/retry-limit on` 在同一回合第三次相同失敗工具呼叫後中止。若同一工具反覆用不同參數失敗，可明確選擇 `/retry-limit strict`，在同工具連續第三次失敗時中止。Strict 也會計入連續的故障注入，需保留測試時請先關閉。`/retry-limit status` 查詢，`/retry-limit off` 關閉。設定隨 Session 保留，沒有設定的新 Session 預設關閉，每次新回合重置計數。
+
+`/retry-limit handoff` 取出這個 Session 最近的停止摘要，供手動交接。摘要只包含工具、停止原因和呼叫 ID。擴充功能監聽 Pi 的工具執行事件，涵蓋已驗證的不存在工具錯誤及 shell 非零退出碼。
 
 ### Hashline 編輯
 
