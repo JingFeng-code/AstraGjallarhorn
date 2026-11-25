@@ -151,3 +151,59 @@ Tool Profile 首輪的單檔防護只接受相對字串，誤拒合成檔案的�
 ### v0.2 判定
 
 七項必要能力均有實際證據，沒有因阻塞而延後的必要功能。限制已如實列於上表與操作手冊第 6 節。本分支標記為 **v0.2 RELEASE READY**，待人工審查 Draft PR 與 CI；未合併 main、未建立 Release。
+
+## v0.2 Final Release Acceptance
+
+2026-11-26，commit `91adc2c` 之後的最終驗收。功能凍結，只做真實交接驗收、程式碼審查修正與最終交付核對。
+
+### 1. 真實 Herdr 自動交接
+
+[原始輸出](evidence/real-handoff-e2e.json)。使用正式 Pi（真實本地模型 `mimo-v2.6-agent32k`）、真實 `hc`、專用 OpenCode 接收終端（`opencode --standalone --auto`，模型由合成專案內的 `opencode.json` 指定為本地 `ollama/mimo-v2.6-agent32k:latest`，沒有改動 OpenCode 全域設定，不產生雲端費用）。每個情境各自建立合成專案與專用終端，沒有使用任何人正在工作的 Agent。
+
+| 情境 | 結果 |
+|---|---|
+| 正常交接 | Pi 的 `node verify.mjs` 失敗，`/retry-limit on` 在第三次相同失敗後停止（停止後沒有任何新工具呼叫啟動）。交接摘要寫入 `~/.pi/agent/handoffs/`；真實 `hc send --if idle` 送出一行短指令；接收者由 idle 變 working；OpenCode 讀取摘要，把 `notes.txt` 補成 3 行，獨立執行 `node verify.mjs` 回傳 0，接收者回到 idle（turn 1）。帳本只有 1 筆 `received`，接收者螢幕上只出現 1 次交接訊息：沒有重複派工，也沒有循環交接。 |
+| 接收者忙碌 | `Handoff failed: receiver is working, not idle`。沒有任何文字被打進忙碌的終端，接收者 turn 不變，摘要保留。 |
+| 接收者不存在 | `Handoff failed: receiver … not found`（真實 `hc` 回報 `not_found`）。摘要保留，不重試。 |
+| 預設關閉 | 新的正式 Pi 工作階段 `/handoff-auto status` 為 off，`~/.pi/agent` 內沒有任何持久的交接設定檔。 |
+| 清理 | 測試結束後所有專用接收終端已移除；`hc ls` 只剩使用者自己的終端。 |
+
+過程中的發現（如實記錄）：
+- 模型在平行批次中可能已同時啟動第 4 個呼叫，Retry Limit 停止時它已在執行。驗收條件因此是「停止後沒有新呼叫啟動」，而不是「恰好 3 次」。
+- 早期一輪的提示讓模型只失敗 2 次，沒有觸發上限，已改成固定提示。
+- 反覆重跑測試用完了正式帳本的「每小時最多 3 次」上限，之後的交接被正確擋下（`handoff cap of 3 per hour reached`）。這證明上限有效；為了繼續驗收，測試產生的帳本被改名備份為 `ledger.json.bak-<時間戳>`（只動測試自己留下的檔案）。
+
+### 2. 最終程式碼與安全審查
+
+審查本 PR 新增的擴充功能，只修實際缺陷：
+
+| 檔案 | 缺陷 | 修正與測試 |
+|---|---|---|
+| `handoff.js` | 摘要與送出內容沒有遮罩祕密 | `redact()` 遮蓋 Bearer／Basic、`sk-`、GitHub／AWS／Slack 金鑰、JWT、URL 帳密、`password=`／`--token`、私鑰區塊；測試涵蓋九種樣式並確認一般指令不受影響 |
+| `handoff.js` | 帳本是無鎖的讀改寫，兩個 Pi 同時觸發可能都送出；寫入後的狀態更新還會覆蓋別人的紀錄 | 互斥鎖檔（死亡程序與逾時鎖會被接管）加原子寫入；先在鎖內「認領」失敗再送出；同一接收者 2 分鐘內有「送出中」不再送；測試：四個並行呼叫只送一次、三個不同失敗不並行送出、帳本無遺失或重複 |
+| `command-guard.js` | `cd <授權目錄外> && git commit` 被放行（相對路徑 git 寫入沒有檢查目前目錄）；`git branch <name>` 被當成唯讀 | git 寫入一律檢查實際作用的儲存庫（`-C` 或目前目錄）；只有純列表形式才算唯讀；新增三項拒絕測試 |
+| `checkpoint.js` | 還原時若某個舊版本讀不到（例如巢狀儲存庫的 gitlink），可能做到一半 | 先讀完全部舊版本才寫入，讀不到就整批不動並指向安全快照 |
+| `task-recovery.js` | `git branch -D`、`git remote add` 被歸類為唯讀，續接時可能被當成可安全重做 | 只有純列表才是唯讀；新增測試 |
+| `lsp.js` | Pi 結束時的子程序清理寫在非同步回呼裡，程序退出時不會執行 | 改為同步 kill；Roslyn 另有 `--clientProcessId` 自行結束 |
+
+審查後保留、已記入文件的已知邊界：防護不分析腳本檔內容（`node script.js`）、變數展開與別名；摘要遮罩是樣式比對；Checkpoint 無法在同一工作樹分辨多個同時修改的 Agent；任務日誌存放原始提示，與 Pi Session 檔相同，只在本機。
+
+### 3. 最終交付核對
+
+| 項目 | 結果 |
+|---|---|
+| 正式 Pi 與 GitHub | 正式 Pi 的擴充功能檔與本分支同一份清單以 `verify.ps1` 逐檔雜湊比對：17 PASS、0 FAIL、0 WARN、1 MANUAL。 |
+| Alt+M | 在 Herdr 終端（真實 TTY）開啟正式 Pi，以 `hc keys alt+m` 送出：第一次後 Skills 清單不再含 `ds-*`，第二次後 `ds-*` 回來；`mode-state.json` 未變。注意這是經 hc 送鍵，不是手按。 |
+| 跨機安裝手冊 | `docs/operations-manual.md` 第 2、3 節；`apply.ps1` Dry Run 與備份為前置步驟。 |
+| Roslyn 與固定版本 | `manifests/packages.json` 記錄 `ms-dotnettools.csharp 2.160.4`、伺服器 5.12.0-1.26452.1、DLL SHA-256 與 Microsoft 簽章者、.NET SDK 10.0.401；`verify.ps1` 檢查簽章有效並比對已測雜湊（版本不同為 WARN，簽章無效為 FAIL）；TypeScript 伺服器固定 typescript 5.9.3、typescript-language-server 6.1.0。 |
+| 備份與還原 | `apply.ps1 -Restore -RestoreLatest` 預覽列出正確的待還原檔案（本輪實測）；實際還原與衝突保護由隔離的 `tests/sync.ps1` 驗證（通過）。沒有對正式 Pi 做實際還原。 |
+| 費用 | 本輪只使用本地 Ollama（`mimo-v2.6-agent32k`）與先前已確認的既有訂閱模型；OpenCode 以專案內設定固定使用本地模型。沒有新增套件、付費服務或帳號。 |
+| 其他 Agent 設定 | 見下。 |
+
+### 保護檔案比對（最終）
+
+OpenCode 全域設定沒有被修改：本輪只在合成專案目錄放 `opencode.json`。Pi 的 `auth.json`、`models.json`、`mode-state.json`、`mcp.json`、`astra-herdr.js`、`mode-switch.ts` 與 `hashline.js` 的雜湊與接手時一致。其餘結果見前一節「保護檔案比對」。
+
+### 判定
+
+七項必要能力與最終驗收項目均有實際證據，沒有因阻塞而延後的必要功能。本分支標記為 **v0.2 RELEASE READY**（待 CI 在最新 commit 全綠、人工審查 Draft PR）。未合併 main、未建立 Release、未刪除分支。

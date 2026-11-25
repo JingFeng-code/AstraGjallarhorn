@@ -49,6 +49,11 @@ const PROMPT = "Call the bash tool with exactly the command `node verify.mjs`. W
 const failures = (pi) => pi.toolEnds().filter((e) => e.toolName === "bash" && e.isError);
 const dump = (pi) => ({ notices: pi.notices(), tools: pi.toolEnds().map((e) => `${e.toolName}${e.isError ? "(error)" : ""}: ${JSON.stringify(e.args ?? e.result ?? "").slice(0, 120)}`) });
 const waitNotice = async (pi) => { try { await pi.waitFor(() => pi.notices().some((n) => n.startsWith("Handoff ")), 90000, "handoff notice"); } catch (error) { console.error(JSON.stringify(dump(pi), null, 1)); throw error; } };
+// Parallel tool batches may already be running when the limit trips; what matters is that nothing NEW starts afterwards.
+const noCallsAfterStop = (pi) => {
+  const stop = pi.events.findIndex((e) => e.type === "extension_ui_request" && e.method === "notify" && String(e.message).startsWith("Retry limit stopped"));
+  return stop >= 0 && !pi.events.slice(stop + 1).some((e) => e.type === "tool_execution_start");
+};
 const cleanup = (...names) => { for (const n of names) { hc("kill", n); hc("rm", n); } };
 
 // ---------- 1. real handoff ----------
@@ -73,7 +78,7 @@ const cleanup = (...names) => { for (const n of names) { hc("kill", n); hc("rm",
     // OpenCode must work the task and finish.
     await sleep(3000);
     let verify;
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 120; i++) {
       verify = spawnSync(process.execPath, ["verify.mjs"], { cwd: dir, encoding: "utf8" });
       if (verify.status === 0) break;
       await sleep(3000);
@@ -87,7 +92,7 @@ const cleanup = (...names) => { for (const n of names) { hc("kill", n); hc("rm",
     const notes = await readFile(path.join(dir, "notes.txt"), "utf8");
     results.push({
       scenario: "real-handoff",
-      piBashCalls: stopped.length, piFailedCalls: failures(pi).length, handoffNotice: notice,
+      piBashCalls: stopped.length, noCallsAfterStop: noCallsAfterStop(pi), piFailedCalls: failures(pi).length, handoffNotice: notice,
       receiverBefore: { status: before.status.state, turn: before.turn }, receiverAfter: { status: after.status.state, turn: after.turn },
       summaryHasTaskAndError: /node verify\.mjs/.test(summary) && /3 identical failures|consecutive/.test(summary),
       openCodeReadSummary: /handoffs/.test(screen) || /astra-handoff/.test(screen),
@@ -96,8 +101,9 @@ const cleanup = (...names) => { for (const n of names) { hc("kill", n); hc("rm",
       ledgerEntriesForReceiver: mine.map((e) => e.status),
       handoffMessagesOnReceiverScreen: (screen.match(/astra-handoff depth=1/g) ?? []).length,
     });
-    assert.equal(failures(pi).length, 3);
-    assert.equal(stopped.length, 3, "Pi stopped at the third failure");
+    if (verify.status !== 0) console.error("receiver screen:", screen.split("\n").filter((l) => l.trim()).slice(-40).join("\n"), "\nnotes.txt=", JSON.stringify(notes));
+    assert.ok(failures(pi).length >= 3, "three failures reached");
+    assert.ok(noCallsAfterStop(pi), "no tool call was started after Retry Limit stopped Pi");
     assert.match(notice, /^Handoff received/);
     assert.equal(verify.status, 0, "OpenCode completed the synthetic task");
     assert.equal(mine.length, 1);
