@@ -18,6 +18,8 @@ pstack `architect` 已同步至正式 Pi 的 `agent/skills/architect`。隔離 P
 
 後續新增兩個 Pi 專屬擴充。正式 Pi 1.6.0 RPC 已驗證 `/hashline`、`/hashreplace` 的同文精準定位、CRLF 保留及過期拒寫。正式 RPC 亦驗證 `/tool-profile review|cloud|local|restore`，模型與 Thinking Level 一致。各自套用前 dry-run 只新增一個檔案。兩個擴充由 Pi Config Manifest 同步，沒有 npm 套件新增。Hashline 的整檔快照檢查不涵蓋外部程序恰在最終比對與重新命名之間寫入的競爭。LSP、剩餘 pstack 技能與模型 A/B 仍待驗收。
 
+2026-11-26 已在實際 Windows Sandbox 測試兩個候選。Better Edit 行錨替換與 stale refusal 通過。Lens 的 TypeScript 型別錯誤、定義和引用通過；乾淨 LSP 回報 inconclusive，編譯器確認修正。正式插件放行與未完成項目見上述能力驗收文件。
+
 ## 已完成
 
 - 工作模式儲存於 Pi Session。共用的舊 `mode-state.json` 保留為唯讀預設，缺少或無效時使用 Default。指定獨立 agent 目錄時，模式資源由相鄰的 `modes` 載入。

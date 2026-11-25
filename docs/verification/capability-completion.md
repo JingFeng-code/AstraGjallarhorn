@@ -28,3 +28,15 @@ Windows、Pi 1.6.0、Node 24.18.0。正式 `/verify` 使用已同步的提示。
 | pi-verify、@wengine-ai/pi-quality-gates | pi-verify 來源仍待核對。Quality Gates 0.3.0 的發布入口註冊 `tool_call`、`tool_result`、`agent_before_settle` 等 hooks。採用可直接執行的共用腳本與 CI，現有流程無需攔截其他工具。 |
 
 未完成 Hashline、LSP、其他 pstack 技能、插件或模型 A/B，以及由模型自主修復的驗收。正式技能仍含已驗證的 `architect` 和原有 DeepSeek Skills。其餘候選工具未執行。
+
+## Windows Sandbox 實測續記
+
+2026-11-26，`WindowsSandbox.exe` 啟動成功。來賓以 `wdagutilityaccount` 執行驗證，回報 Windows `10.0.26100.9974`。非系統管理員終端執行 DISM 查詢回傳 740。功能狀態以使用者確認及實際來賓執行為據。測試關閉網路和剪貼簿，輸入唯讀，證據另寫入空白目錄。正式安裝流程無 Sandbox 相依。
+
+| 檢查 | 觀察 |
+|---|---|
+| 依賴 | 在暫存目錄以既有鎖檔停用生命週期腳本準備候選依賴。Registry audit 在兩個解析圖中均回報 0 筆已知漏洞；這項結果只涵蓋該次解析和 registry 資料。 |
+| pi-better-edit 2.21.0 | 以 Pi 1.6.0 在真正 Windows 來賓載入，實際執行插件的 `read` 和 `edit`。行錨點能替換指定行，保留 CRLF。測試外部修改後收到 `E_TARGET_LOST`，並確認修改仍在。 |
+| pi-lens 4.5.2 | 在同一來賓中，以 TypeScript 5.9.3 及 typescript-language-server 6.1.0 實測。`lens_diagnostics` 回報注入的 TS2322。`lsp_navigation` 回報第 1 行定義與第 2 行引用。修正後獨立 `tsc --noEmit` 回傳 0；LSP 因 server 對乾淨檔案未發布清除證據而回報 inconclusive。 |
+
+兩個套件的 Windows 啟動及上述個別功能已實證。候選的組合互動、模型工具整合、C# LSP 及正式設定受影響範圍仍待放行。保留既有第一方 Hashline；候選 `pi-better-edit` 會覆寫模型的 `read`／`edit`，其覆寫與正式 Pi 其他擴充的交互作用尚無證據。這次候選程式碼只在來賓執行。
