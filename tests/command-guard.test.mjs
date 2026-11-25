@@ -34,7 +34,7 @@ const cases = {
   ],
   deny: [
     `rm -rf ${outside}`, `rm ${outside}/x.txt`, "rm -rf /", "rm -rf ~", "rm -rf .", `rm -rf ${cwd}`, `echo x > ${outside}/a.txt`, `cp a.txt ${outside}/a.txt`, `mv a.txt ${outside}/`,
-    `touch ${outside}/x`, `cd ${outside} && rm a.txt`, `git -C ${outside} reset --hard`, `git -C ${outside} commit -am x`,
+    `touch ${outside}/x`, `cd ${outside} && git commit -am x`, `cd ${outside} && git add -A`, `git -C ${outside} branch newbranch`, `cd ${outside} && rm a.txt`, `git -C ${outside} reset --hard`, `git -C ${outside} commit -am x`,
     "cat ~/.pi/agent/auth.json", "type %USERPROFILE%\\.ssh\\id_rsa", "cat ~/.aws/credentials", "Get-Content ~/.npmrc", "cp ~/.ssh/id_ed25519 .", "cat ../../.git-credentials",
     "echo x >> ~/.claude/settings.json", "rm ~/.codex/config.toml", "sed -i s/a/b/ ~/.config/opencode/opencode.json", "Set-Content ~/.config/herdr-core/config.toml x",
     "echo hi > .claude/settings.local.json", "echo x > ~/.pi/agent/extensions/command-guard.js", "echo x > ~/.pi/agent/settings.json",

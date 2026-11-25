@@ -101,3 +101,48 @@ test("hourly cap stops runaway handoffs", async () => {
     assert.match(out.detail, /cap/);
   } finally { await rm(s.dir, { recursive: true, force: true }); }
 });
+
+test("secrets are masked in the summary file", async () => {
+  const { redact } = await import("../extensions/handoff.js");
+  const samples = [
+    ["curl -H 'Authorization: Bearer abcdef1234567890XYZ' https://x", /abcdef1234567890XYZ/],
+    ["export OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwx", /sk-abcdefghijklmnop/],
+    ["token=ghp_abcdefghijklmnopqrstuvwxyz0123456789", /ghp_abcdefghij/],
+    ["git clone https://user:hunter2pass@github.com/a/b.git", /hunter2pass/],
+    ['{"password": "s3cr3t-value"}', /s3cr3t-value/],
+    ["npm login --password hunter2 --user a", /hunter2/],
+    ["AKIAABCDEFGHIJKLMNOP", /AKIAABCDEFGHIJKLMNOP/],
+    ["eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijk", /eyJhbGciOiJIUzI1NiJ9/],
+    ["-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----", /MIIabc/],
+  ];
+  for (const [input, leak] of samples) assert.doesNotMatch(redact(input), leak, input);
+  assert.equal(redact("node verify.mjs --suite sql"), "node verify.mjs --suite sql", "ordinary commands are untouched");
+
+  const s = await setup();
+  try {
+    const out = await run(s, { failure: { ...failure, args: { command: "deploy --token abc123secret" }, error: "401 Authorization: Bearer zzzzzzzzzz12345" }, ctx: { task: "use password=hunter2 to log in" } });
+    const summary = await readFile(out.file, "utf8");
+    assert.doesNotMatch(summary, /abc123secret|zzzzzzzzzz12345|hunter2/);
+    assert.match(summary, /REDACTED/);
+  } finally { await rm(s.dir, { recursive: true, force: true }); }
+});
+
+test("concurrent handoffs of the same failure send exactly once", async () => {
+  const s = await setup();
+  try {
+    const outcomes = await Promise.all([run(s), run(s), run(s), run(s)]);
+    assert.equal(outcomes.filter((o) => o.status === "received").length, 1, JSON.stringify(outcomes.map((o) => o.status)));
+    assert.equal((await s.log()).filter((l) => l.cmd === "send").length, 1);
+    const ledger = JSON.parse(await readFile(path.join(s.handoffs, "ledger.json"), "utf8"));
+    assert.equal(ledger.entries.length, 1, "no lost or duplicated ledger entries");
+  } finally { await rm(s.dir, { recursive: true, force: true }); }
+});
+
+test("different failures to the same busy-sending receiver are serialised", async () => {
+  const s = await setup();
+  try {
+    const outcomes = await Promise.all([1, 2, 3].map((i) => run(s, { failure: { ...failure, args: { command: `x${i}` } } })));
+    assert.equal((await s.log()).filter((l) => l.cmd === "send").length, outcomes.filter((o) => o.status === "received").length);
+    assert.ok(outcomes.filter((o) => o.status === "received").length <= 1, JSON.stringify(outcomes.map((o) => o.status)));
+  } finally { await rm(s.dir, { recursive: true, force: true }); }
+});

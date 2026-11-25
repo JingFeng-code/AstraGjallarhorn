@@ -1,0 +1,50 @@
+{
+  "results": [
+    {
+      "scenario": "real-handoff",
+      "piBashCalls": 3,
+      "piFailedCalls": 3,
+      "handoffNotice": "Handoff received: receiver t15m (opencode) picked up the handoff",
+      "receiverBefore": {
+        "status": "idle",
+        "turn": 0
+      },
+      "receiverAfter": {
+        "status": "working",
+        "turn": 0
+      },
+      "summaryHasTaskAndError": true,
+      "openCodeReadSummary": true,
+      "receiverFinalStatus": "idle",
+      "receiverFinalTurn": 1,
+      "independentVerifyExit": 0,
+      "notesTxt": "alpha\nbeta\ngamma",
+      "ledgerEntriesForReceiver": [
+        "received"
+      ],
+      "handoffMessagesOnReceiverScreen": 1
+    },
+    {
+      "scenario": "busy-receiver",
+      "failed": 5,
+      "handoffNotice": "Handoff failed: receiver is working, not idle. Summary kept at C:\\Users\\Jing\\.pi\\agent\\handoffs\\2026-11-25T18-59-15-412Z-7fb4b7a423281526.md",
+      "handoffMessageDelivered": false,
+      "receiverTurnBefore": 0,
+      "receiverTurnAfter": 0
+    },
+    {
+      "scenario": "missing-receiver",
+      "failed": 3,
+      "handoffNotice": "Handoff failed: receiver t15p not found ({\"error\":{\"hint\":\"see `hc ls --all`\",\"kind\":\"not_found\",\"message\":\"no terminal \\\"t15p\\\"\"}}). Summary kept at C:\\Users\\Jing\\.pi\\agent\\handoffs\\2026-11-25T18-59-45-364Z-7653311a85ac85f1.md",
+      "summaryKept": true
+    },
+    {
+      "scenario": "default-off",
+      "status": "Automatic handoff off (manual handoff only).",
+      "persistentConfigFile": false
+    }
+  ],
+  "liveTerminalsAfter": [
+    "t15c"
+  ]
+}

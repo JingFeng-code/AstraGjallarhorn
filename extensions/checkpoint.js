@@ -158,16 +158,19 @@ export async function applyRestore(root, plan, { force = false } = {}) {
   const safety = await createCheckpoint(root, { id: `${plan.id}-before-restore`, phase: "safety", label: "automatic backup taken before restore" });
   const done = [];
   const skipped = [];
+  // Read every old version first: if any cannot be read (e.g. a nested repository stored as a
+  // gitlink) nothing is written, so a restore is never left half applied.
+  const todo = [];
   for (const a of plan.actions) {
     if (a.external && !force) { skipped.push(a.path); continue; }
+    if (a.kind === "delete-created") { todo.push({ a }); continue; }
+    try { todo.push({ a, bytes: await git(root, ["cat-file", "--filters", `${plan.pre}:${a.path}`], { binary: true }) }); }
+    catch (error) { throw new Error(`Cannot restore ${a.path} (${String(error.stderr || error.message).trim().slice(0, 120)}); nothing was changed. Safety checkpoint ${safety.id} exists.`); }
+  }
+  for (const { a, bytes } of todo) {
     const abs = path.join(root, a.path);
-    if (a.kind === "delete-created") {
-      await unlink(abs).catch(() => {});
-    } else {
-      const bytes = await git(root, ["cat-file", "--filters", `${plan.pre}:${a.path}`], { binary: true });
-      await mkdir(path.dirname(abs), { recursive: true });
-      await writeFile(abs, bytes);
-    }
+    if (bytes === undefined) await unlink(abs).catch(() => {});
+    else { await mkdir(path.dirname(abs), { recursive: true }); await writeFile(abs, bytes); }
     done.push(a.path);
   }
   return { safety: safety.id, done, skipped };

@@ -42,9 +42,17 @@
     ],
     "installCommand": "npm install --prefix \"$env:USERPROFILE/.pi/agent/lsp\" --ignore-scripts --save-exact --no-audit --no-fund typescript@5.9.3 typescript-language-server@6.1.0",
     "csharp": {
-      "server": "Microsoft.CodeAnalysis.LanguageServer from the Microsoft C# VS Code extension (ms-dotnettools.csharp), Authenticode-signed",
-      "discovery": "~/.vscode/extensions/ms-dotnettools.csharp-*/.roslyn or ASTRA_ROSLYN_LS",
-      "testedWith": "ms-dotnettools.csharp 2.160.4, .NET SDK 10.0.401"
+      "server": "Microsoft.CodeAnalysis.LanguageServer.dll (Roslyn Language Server) bundled with the Microsoft C# VS Code extension ms-dotnettools.csharp",
+      "tested": {
+        "extension": "2.160.4-win32-x64",
+        "serverProductVersion": "5.12.0-1.26452.1+e42c0e42e89e41522593d0816707e71781ecbee2",
+        "dllSha256": "6519CF410A2DB56487B2D65275361307A61DD2822EF7635D8A2044913371D80A",
+        "authenticodeSigner": "CN=.NET, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "dotnetSdk": "10.0.401",
+        "runtime": "Microsoft.NETCore.App 10.0.12"
+      },
+      "discovery": "~/.vscode/extensions/ms-dotnettools.csharp-*/.roslyn (highest version) or env ASTRA_ROSLYN_LS",
+      "policy": "Never downloaded by Pi. A different extension version is accepted but untested: confirm with tests/lsp-cs.test.mjs. Server must have a valid Authenticode signature."
     }
   }
 }

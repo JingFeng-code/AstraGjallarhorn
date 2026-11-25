@@ -338,12 +338,16 @@ export function analyzeCommand(command, ctx, depth = 0) {
     if (cmd === "git") {
       let g = gitVerdict(args);
       result = worse(result, g);
+      // Which repository does this git command act on? -C <dir> if given, otherwise the (tracked) working directory.
       const cIdx = args.indexOf("-C");
-      if (cIdx >= 0 && args[cIdx + 1]) {
-        const abs = state.cwdKnown ? resolvePath(args[cIdx + 1], state.cwd) : undefined;
-        const mutating = !["status", "diff", "log", "show", "rev-parse", "ls-files", "branch", "cat-file", "blame", "describe", "grep", "ls-tree", "remote", "rev-list", "shortlog", "config"].includes(args.filter((a, i) => i !== cIdx && i !== cIdx + 1 && !a.startsWith("-"))[0]);
-        if (!abs) add("ask", "git -C target cannot be resolved");
-        else if (mutating && !ctx.roots.some((r) => inside(abs, r))) add("deny", `git -C ${args[cIdx + 1]} modifies a repository outside the authorized directories`);
+      const positional = args.filter((a, i) => !(cIdx >= 0 && (i === cIdx || i === cIdx + 1)) && !a.startsWith("-"));
+      const readOnly = ["status", "diff", "log", "show", "rev-parse", "ls-files", "cat-file", "blame", "describe", "grep", "ls-tree", "rev-list", "shortlog"].includes(positional[0])
+        || (["branch", "remote", "config", "tag"].includes(positional[0]) && positional.length === 1);
+      if (!readOnly) {
+        const target = cIdx >= 0 && args[cIdx + 1] ? args[cIdx + 1] : ".";
+        const abs = state.cwdKnown ? resolvePath(target, state.cwd) : undefined;
+        if (!abs) add("ask", "git repository location cannot be resolved");
+        else if (!ctx.roots.some((r) => inside(abs, r))) add("deny", `git ${positional[0] ?? ""} would modify a repository outside the authorized directories (${abs})`);
       }
       continue;
     }

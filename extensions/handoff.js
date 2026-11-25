@@ -4,7 +4,7 @@
 // existing `hc` CLI, to that receiver. Nothing in Herdr, hc or the receiving agent is configured.
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, open, stat, unlink, rename } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -58,7 +58,59 @@ export function validateReceiver(desc, { cwd, selfSession, expectedAgent }) {
 }
 
 async function readLedger(file) {
-  try { return JSON.parse(await readFile(file, "utf8")); } catch { return { entries: [] }; }
+  try { const parsed = JSON.parse(await readFile(file, "utf8")); return Array.isArray(parsed.entries) ? parsed : { entries: [] }; } catch { return { entries: [] }; }
+}
+
+const pidAlive = (pid) => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch (error) { return error.code === "EPERM"; } };
+
+// Serialises every read-modify-write of the ledger across Pi processes (exclusive lock file,
+// stale locks from dead processes are taken over) and writes atomically.
+export async function withLedger(dir, fn) {
+  const lock = path.join(dir, "ledger.lock");
+  const file = path.join(dir, "ledger.json");
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    try {
+      const handle = await open(lock, "wx");
+      await handle.writeFile(String(process.pid));
+      await handle.close();
+      break;
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      const info = await stat(lock).catch(() => undefined);
+      const owner = Number(await readFile(lock, "utf8").catch(() => "0"));
+      if (info && (Date.now() - info.mtimeMs > 15_000 || (owner && !pidAlive(owner)))) { await unlink(lock).catch(() => {}); continue; }
+      if (Date.now() > deadline) throw new Error("handoff ledger is locked by another process");
+      await new Promise((r) => setTimeout(r, 40));
+    }
+  }
+  try {
+    const ledger = await readLedger(file);
+    const out = await fn(ledger);
+    const tmp = `${file}.${process.pid}.tmp`;
+    await writeFile(tmp, JSON.stringify(ledger, null, 2));
+    await rename(tmp, file);
+    return out;
+  } finally { await unlink(lock).catch(() => {}); }
+}
+
+// Masks secrets before anything is written to a summary file or typed into another agent.
+const SECRET_PATTERNS = [
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z ]*PRIVATE KEY-----|$)/g, "[REDACTED PRIVATE KEY]"],
+  [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi, "$1 [REDACTED]"],
+  [/\b(sk|pk|rk)-[A-Za-z0-9_-]{16,}/g, "[REDACTED KEY]"],
+  [/\b(ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}/g, "[REDACTED GITHUB TOKEN]"],
+  [/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, "[REDACTED AWS KEY]"],
+  [/\bxox[abprs]-[A-Za-z0-9-]{10,}/g, "[REDACTED SLACK TOKEN]"],
+  [/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}/g, "[REDACTED JWT]"],
+  [/([a-z][a-z0-9+.-]*:\/\/)[^\s/:@]+:[^\s/@]+@/gi, "$1[REDACTED]@"],
+  [/((?:api[_-]?key|secret|token|password|passwd|pwd|authorization|credential)s?["']?\s*[:=]\s*)(["']?)[^\s"',;&]{3,}\2/gi, "$1[REDACTED]"],
+  [/(--?(?:password|passwd|token|api-?key|secret)[= ])[^\s]+/gi, "$1[REDACTED]"],
+];
+export function redact(text) {
+  let out = String(text ?? "");
+  for (const [pattern, replacement] of SECRET_PATTERNS) out = out.replace(pattern, replacement);
+  return out;
 }
 
 export function buildSummary({ failure, cwd, sessionId, sessionFile, task, git, checkpoint, depth }) {
@@ -72,15 +124,15 @@ export function buildSummary({ failure, cwd, sessionId, sessionFile, task, git, 
     checkpoint ? `Checkpoint before the task: ${checkpoint} (restore with /checkpoint restore ${checkpoint} in Pi)` : "",
     "",
     "## Task",
-    task || "(not captured)",
+    redact(task) || "(not captured)",
     "",
     "## Last failing call",
     "```json",
-    JSON.stringify({ tool: failure.tool, args: failure.args, error: failure.error }, null, 2),
+    redact(JSON.stringify({ tool: failure.tool, args: failure.args, error: failure.error }, null, 2)),
     "```",
     "",
     "## Working tree",
-    git || "(not a git repository)",
+    redact(git) || "(not a git repository)",
     "",
     "## Instructions for the receiver",
     "- The sending Pi stopped after three identical or consecutive failures. Do not repeat the same call blindly.",
@@ -94,26 +146,28 @@ export async function performHandoff({ config, failure, ctxInfo, runHc = hcRunne
   if (!config?.enabled || !config.target) return result("skipped", "automatic handoff is off");
   if (ctxInfo.inheritedDepth >= 1) return result("blocked", "this session is itself the result of a handoff; refusing to hand off again (loop prevention)");
   await mkdir(dir, { recursive: true });
-  const ledgerFile = path.join(dir, "ledger.json");
-  const ledger = await readLedger(ledgerFile);
   const key = createHash("sha1").update(JSON.stringify([ctxInfo.sessionId, ctxInfo.taskKey, failure.reason, failure.tool, failure.args])).digest("hex").slice(0, 16);
-  if (ledger.entries.some((e) => e.key === key)) return result("blocked", `this failure was already handed off (${ledger.entries.find((e) => e.key === key).status}); not sending again`);
-  const hour = Date.now() - 3600_000;
-  if (ledger.entries.filter((e) => e.at > hour).length >= HOURLY_CAP) return result("blocked", `handoff cap of ${HOURLY_CAP} per hour reached`);
+  const file = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, "-")}-${key}.md`);
+  // Claim the failure atomically before anything is sent, so concurrent Pi processes cannot both pass.
+  // Recording "sending" first also means a crash or timeout leaves an unknown outcome that is never re-sent.
+  const claim = await withLedger(dir, (ledger) => {
+    const prior = ledger.entries.find((e) => e.key === key && e.status !== "rejected");
+    if (prior) return { blocked: `this failure was already handed off (${prior.status}); not sending again` };
+    const now = Date.now();
+    if (ledger.entries.filter((e) => e.at > now - 3600_000 && e.status !== "rejected").length >= HOURLY_CAP) return { blocked: `handoff cap of ${HOURLY_CAP} per hour reached` };
+    if (ledger.entries.some((e) => e.target === config.target && e.status === "sending" && e.at > now - 120_000)) return { blocked: "another handoff to this receiver is being sent right now" };
+    ledger.entries.push({ key, at: now, target: config.target, file, status: "sending" });
+    return { ok: true };
+  });
+  if (claim.blocked) return result("blocked", claim.blocked);
+  const setStatus = (status) => withLedger(dir, (ledger) => { const e = ledger.entries.find((x) => x.key === key); if (e) e.status = status; });
 
   const summary = buildSummary({ failure, cwd: ctxInfo.cwd, sessionId: ctxInfo.sessionId, sessionFile: ctxInfo.sessionFile, task: ctxInfo.task, git: ctxInfo.git, checkpoint: ctxInfo.checkpoint, depth: 1 });
-  const file = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, "-")}-${key}.md`);
   await writeFile(file, summary + "\n");
 
   const before = await describeTarget(runHc, config.target);
   const problem = validateReceiver(before, { cwd: ctxInfo.cwd, selfSession: ctxInfo.sessionId, expectedAgent: config.agent });
-  if (problem) return result("failed", `${problem}. Summary kept at ${file}`, { file });
-
-  // Record intent first: after a crash or timeout the outcome is unknown and must not be re-sent.
-  const entry = { key, at: Date.now(), target: config.target, file, status: "sending" };
-  ledger.entries.push(entry);
-  await writeFile(ledgerFile, JSON.stringify(ledger, null, 2));
-  const setStatus = async (status) => { entry.status = status; await writeFile(ledgerFile, JSON.stringify(ledger, null, 2)); };
+  if (problem) { await setStatus("rejected"); return result("failed", `${problem}. Summary kept at ${file}`, { file }); }
 
   const line = `Astra handoff [astra-handoff depth=1]: read ${file} and continue the task described there. Reply when started.`;
   const sent = await runHc(["send", config.target, line, "--if", "idle", "--json"], 30000);

@@ -10,10 +10,10 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 // script: array of steps. step = { text } | { tools: [{name, args}] } | function(requestBody, n) => step
-export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false, real, formal = false }) {
+export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false, real, formal = false, workDir }) {
   const cwd = baseDir ?? await mkdtemp(path.join(tmpdir(), "astra-rpc-"));
   const agent = formal ? path.join((await import("node:os")).homedir(), ".pi", "agent") : path.join(cwd, "agent");
-  const work = path.join(cwd, "work");
+  const work = workDir ?? path.join(cwd, "work");
   await mkdir(path.join(agent, "extensions"), { recursive: true });
   await mkdir(work, { recursive: true });
   if (!formal) for (const name of extensions) await copyFile(path.join(repoRoot, "extensions", name), path.join(agent, "extensions", name));

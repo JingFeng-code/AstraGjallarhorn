@@ -225,6 +225,26 @@ try {
         } else {
             Add-Result -Name 'TypeScript LSP 伺服器' -Status 'PASS' -Detail 'typescript 與 typescript-language-server 版本符合固定值'
         }
+        $roslyn = $null
+        if ($env:ASTRA_ROSLYN_LS -and (Test-Path -LiteralPath $env:ASTRA_ROSLYN_LS)) { $roslyn = Get-Item -LiteralPath $env:ASTRA_ROSLYN_LS }
+        else {
+            $extRoot = Join-Path $HOME '.vscode/extensions'
+            if (Test-Path -LiteralPath $extRoot) {
+                $roslyn = Get-ChildItem -LiteralPath $extRoot -Directory -Filter 'ms-dotnettools.csharp-*' -ErrorAction SilentlyContinue |
+                    Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName '.roslyn/Microsoft.CodeAnalysis.LanguageServer.dll' } |
+                    Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1 | ForEach-Object { Get-Item -LiteralPath $_ }
+            }
+        }
+        if (-not $roslyn) {
+            Add-Result -Name 'C# LSP 伺服器' -Status 'WARN' -Detail '找不到 Roslyn Language Server（安裝 Microsoft C# VS Code 擴充功能或設定 ASTRA_ROSLYN_LS）；C# LSP 工具會回報 NOT FOUND，其餘功能不受影響'
+        } else {
+            $sig = (Get-AuthenticodeSignature -LiteralPath $roslyn.FullName).Status
+            $tested = [string](Get-Prop (Get-Prop (Get-Prop $lspSpec 'csharp') 'tested') 'dllSha256')
+            $hash = (Get-FileHash -LiteralPath $roslyn.FullName -Algorithm SHA256).Hash
+            if ($sig -ne 'Valid') { Add-Result -Name 'C# LSP 伺服器' -Status 'FAIL' -Detail ("簽章狀態 {0}：{1}" -f $sig, $roslyn.FullName) }
+            elseif ($hash -eq $tested) { Add-Result -Name 'C# LSP 伺服器' -Status 'PASS' -Detail '簽章有效，與已測版本雜湊一致' }
+            else { Add-Result -Name 'C# LSP 伺服器' -Status 'WARN' -Detail ("簽章有效，但版本與已測不同（{0}）；請執行 tests/lsp-cs.test.mjs 確認相容" -f $roslyn.VersionInfo.ProductVersion) }
+        }
     }
 
     # --------------------------------------------------------- 4/5/6. 模式

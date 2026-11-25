@@ -300,7 +300,7 @@ export async function workspaceFor(language, file, cwd) {
 
 // ---------------- manager ----------------
 export class LspManager {
-  constructor({ idleMs = 10 * 60_000 } = {}) { this.clients = new Map(); this.idleMs = idleMs; }
+  constructor({ idleMs = 10 * 60_000 } = {}) { this.clients = new Map(); this.idleMs = idleMs; this.children = new Set(); }
   async get(language, file, cwd) {
     // Long, canonical paths only: tsserver's file watcher aborts on Windows 8.3 short names (RUNNER~1).
     file = canonical(file); cwd = canonical(cwd);
@@ -324,6 +324,7 @@ export class LspManager {
     if (spec.error) throw new Error(spec.error);
     const client = new LspClient({ command: spec.command, args: spec.args, cwd: ws.root, env: spec.env, rootUri: toUri(ws.root), serverRequests: { configuration: spec.configuration }, label: language });
     client.cleanup = spec.cleanup;
+    this.children.add(client);
     try {
       await client.initialize({ initializationOptions: spec.init });
       if (language === "csharp") {
@@ -370,7 +371,8 @@ export default async function (pi) {
   const { Type } = await import("typebox");
   const manager = new LspManager();
   pi.on("session_shutdown", async () => { await manager.stopAll(); });
-  process.once("exit", () => { for (const e of manager.clients.values()) e.starting.then((c) => c.child.kill(), () => {}); });
+  // Synchronous: promises do not run during process exit.
+  process.once("exit", () => { for (const c of manager.children) { try { c.child.kill(); } catch { /* already gone */ } } });
 
   const resolveInput = (ctx, p) => {
     const abs = path.resolve(ctx.cwd, p);

@@ -21,6 +21,11 @@ test("classification separates read-only from state-changing calls", () => {
   assert.equal(classifyTool("bash", { command: "git push origin main" }), "mutating");
   assert.equal(classifyTool("bash", { command: "ls; rm -rf x" }), "mutating");
   assert.equal(classifyTool("bash", { command: "find . -name a -delete" }), "mutating");
+  assert.equal(classifyTool("bash", { command: "git branch -D old" }), "mutating");
+  assert.equal(classifyTool("bash", { command: "git branch newbranch" }), "mutating");
+  assert.equal(classifyTool("bash", { command: "git remote add x url" }), "mutating");
+  assert.equal(classifyTool("bash", { command: "git branch -a" }), "read");
+  assert.equal(classifyTool("bash", { command: "git diff --stat" }), "read");
   assert.equal(classifyTool("write", {}), "mutating");
   assert.equal(classifyTool("mystery", {}), "unknown");
 });

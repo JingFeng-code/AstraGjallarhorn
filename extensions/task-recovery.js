@@ -11,13 +11,14 @@ import path from "node:path";
 
 const WIN = process.platform === "win32";
 const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls"]);
-const READ_ONLY_BASH = /^\s*(git\s+(status|diff|log|show|rev-parse|ls-files|branch(\s+-[av]+)?|remote(\s+-v)?|cat-file|blame|describe)\b|ls|dir|cat|type|head|tail|wc|grep|rg|find(?!.*-(delete|exec))|pwd|echo|node\s+(-v|--version)|npm\s+(--version|-v|ls|list)|dotnet\s+(--version|--info)|Get-Content|Get-ChildItem|Select-String)\b[^;&|><`$]*$/i;
+const READ_ONLY_BASH = /^\s*(git\s+(status|diff|log|show|rev-parse|ls-files|cat-file|blame|describe)|ls|dir|cat|type|head|tail|wc|grep|rg|find(?!.*-(delete|exec|fprint|ok))|pwd|echo|node\s+(-v|--version)|npm\s+(--version|-v|ls|list)|dotnet\s+(--version|--info)|Get-Content|Get-ChildItem|Select-String)(\s[^;&|><`$]*)?$/i;
+const READ_ONLY_LIST = /^\s*git\s+(branch|remote)(\s+-[a-z]+)*\s*$/i; // listing only: any extra argument creates or edits something
 
 export const journalDir = () => path.join(process.env.PI_CODING_AGENT_DIR ?? path.join(os.homedir(), ".pi", "agent"), "tasks");
 
 export function classifyTool(name, args) {
   if (READ_ONLY_TOOLS.has(name)) return "read";
-  if (name === "bash") return READ_ONLY_BASH.test(String(args?.command ?? "")) ? "read" : "mutating";
+  if (name === "bash") return (READ_ONLY_BASH.test(String(args?.command ?? "")) || READ_ONLY_LIST.test(String(args?.command ?? ""))) ? "read" : "mutating";
   if (name === "write" || name === "edit" || name === "multiedit") return "mutating";
   return "unknown";
 }
