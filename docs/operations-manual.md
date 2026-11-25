@@ -110,7 +110,7 @@ C# LSP 使用 Microsoft C# VS Code 擴充功能（`ms-dotnettools.csharp`）隨�
 - 啟用前先 `/retry-limit on`，並確認接收者是專用且閒置的終端、工作目錄與 Pi 相同；`/handoff-auto check` 隨時可重新檢查。
 - 每小時最多 3 次（帳本 `~/.pi/agent/handoffs/ledger.json`）。大量測試後被擋下是預期行為；要重來可以把該檔改名備份。
 - 摘要檔會遮罩常見祕密，但仍請避免在提示裡貼憑證。
-- 真實驗收可重跑：`node tests/real-model/handoff-e2e.mjs <pi cli.js>`（只會建立並移除自己的專用 OpenCode 終端與 `E:Astra.astra-runshandoff-e2e` 下的合成專案；路徑寫在腳本開頭，請依機器調整）。
+- 真實驗收可重跑：`node tests/real-model/handoff-e2e.mjs <pi cli.js>`（只會建立並移除自己的專用 OpenCode 終端與 `E:\Astra\.astra-runs\handoff-e2e` 下的合成專案；路徑寫在腳本開頭，請依機器調整）。
 
 ## 6. 已知限制（誠實清單）
 
