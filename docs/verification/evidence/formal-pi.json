@@ -1,0 +1,130 @@
+{
+  "model": "mimo-v2.6-agent32k",
+  "pi": "formal install",
+  "results": [
+    {
+      "scenario": "inventory",
+      "commandsPresent": [
+        "guard",
+        "checkpoint",
+        "task",
+        "handoff-auto",
+        "lsp",
+        "review-diff",
+        "tool-profile",
+        "retry-limit",
+        "hashline",
+        "mode"
+      ],
+      "missing": [],
+      "seconds": 2,
+      "pass": true
+    },
+    {
+      "scenario": "guard-and-checkpoint",
+      "calls": [
+        "bash(error)"
+      ],
+      "blockedByGuard": 1,
+      "fileSurvived": true,
+      "checkpointRefs": 2,
+      "seconds": 13,
+      "pass": true
+    },
+    {
+      "scenario": "lsp-ts",
+      "calls": [
+        "lsp_diagnostics",
+        "lsp_diagnostics",
+        "read",
+        "edit(error)",
+        "read",
+        "edit",
+        "lsp_diagnostics"
+      ],
+      "sawErrors": true,
+      "lastDiagnostics": "CLEAN: src/main.ts has no errors or warnings (server typescript, push, version 2).",
+      "independentTscExit": 0,
+      "seconds": 47,
+      "pass": true
+    },
+    {
+      "scenario": "lsp-cs",
+      "calls": [
+        "lsp_diagnostics",
+        "lsp_diagnostics",
+        "lsp_diagnostics",
+        "read(error)",
+        "bash(error)",
+        "read(error)",
+        "read(error)",
+        "bash(error)",
+        "read(error)",
+        "bash(error)",
+        "bash(error)",
+        "read(error)",
+        "bash(error)",
+        "read(error)",
+        "bash(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)",
+        "read(error)"
+      ],
+      "sawErrors": true,
+      "lastDiagnostics": "CLEAN: NoteTests.cs has no errors or warnings (server csharp, pull, version 1).",
+      "independentBuildExit": 1
+    },
+    {
+      "scenario": "lsp-cs",
+      "pass": false,
+      "error": "Expected values to be strictly equal:\n\n1 !== 0\n"
+    },
+    {
+      "scenario": "diff-review",
+      "calls": [
+        "review_diff"
+      ],
+      "usedReviewDiff": true,
+      "mentionsTestGap": true,
+      "worktreeUnchanged": true,
+      "seconds": 29,
+      "pass": true
+    }
+  ]
+}

@@ -82,10 +82,10 @@ const scenarios = {
       await writeFile(f, (await readFile(f, "utf8")).replace("int id = notes.Count + 1;", 'int id = "oops";'));
     }, ["--tools", "read,edit,lsp_diagnostics,lsp_definition,lsp_references"]);
     try {
-      await ask(pi, "The C# project does not compile and you do not know where. Run the lsp_diagnostics tool on each of these files first: Domain/Note.cs, Storage/NoteStore.cs, NoteTests.cs. Do not read files before you have the diagnostics. Fix the reported error with the edit tool (an int id must come from notes.Count + 1), then run lsp_diagnostics on that file again to confirm it is CLEAN.", 300000);
+      await ask(pi, "The C# project does not compile and you do not know where. Run the lsp_diagnostics tool on each of these files first: Domain/Note.cs, Storage/NoteStore.cs, NoteTests.cs. Do not read files before you have the diagnostics. Fix the reported error with the edit tool (an int id must come from notes.Count + 1; the read tool takes a parameter named file, and edit takes file, anchor_from, anchor_to and text), then run lsp_diagnostics on that file again to confirm it is CLEAN.", 300000);
       const build = spawnSync("dotnet", ["build", "Notes.Tests.csproj", "--no-restore", "-nologo", "-v", "q"], { cwd: pi.work, encoding: "utf8" });
       const diags = pi.toolEnds().filter((e) => e.toolName === "lsp_diagnostics");
-      results.push({ scenario: "lsp-cs", calls: calls(pi), sawErrors: diags.some((e) => /^ERRORS/.test(toolText(e))), lastDiagnostics: diags.at(-1) ? toolText(diags.at(-1)).split("\n")[0] : null, independentBuildExit: build.status });
+      results.push({ scenario: "lsp-cs", firstErrors: pi.toolEnds().filter((e) => e.isError).slice(0, 3).map((e) => `${e.toolName}: ${toolText(e).slice(0, 200)}`), calls: calls(pi).slice(0, 12), sawErrors: diags.some((e) => /^ERRORS/.test(toolText(e))), lastDiagnostics: diags.at(-1) ? toolText(diags.at(-1)).split("\n")[0] : null, independentBuildExit: build.status });
       assert.equal(build.status, 0);
     } finally { await pi.close(); }
   },

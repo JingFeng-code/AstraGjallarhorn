@@ -4,7 +4,7 @@
 // stash and working files are never touched by a snapshot. Restore is path-scoped to what
 // the task itself changed and refuses to overwrite anything modified by someone else.
 import { execFile } from "node:child_process";
-import { mkdir, writeFile, rm, stat, unlink } from "node:fs/promises";
+import { mkdir, writeFile, rm, stat, unlink, readdir, readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 
@@ -173,6 +173,30 @@ export async function applyRestore(root, plan, { force = false } = {}) {
   return { safety: safety.id, done, skipped };
 }
 
+// Other live Pi processes with a running task in the same work tree. Uses a marker per process
+// inside the git directory, so it needs no coordination service and cleans up after crashes.
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (error) { return error.code === "EPERM"; } };
+async function activeDir(root) {
+  const gitDir = path.resolve(root, (await git(root, ["rev-parse", "--git-dir"])).trim());
+  return path.join(gitDir, "astra-active");
+}
+export async function markActive(root, info = {}) {
+  const dir = await activeDir(root);
+  await mkdir(dir, { recursive: true });
+  const others = [];
+  for (const name of await readdir(dir).catch(() => [])) {
+    const pid = Number(name.replace(/.json$/, ""));
+    if (!pid || pid === process.pid) continue;
+    if (!alive(pid)) { await unlink(path.join(dir, name)).catch(() => {}); continue; }
+    others.push({ pid, ...JSON.parse(await readFile(path.join(dir, name), "utf8").catch(() => "{}")) });
+  }
+  await writeFile(path.join(dir, `${process.pid}.json`), JSON.stringify({ ...info, startedAt: new Date().toISOString() }));
+  return others;
+}
+export async function clearActive(root) {
+  await unlink(path.join(await activeDir(root), `${process.pid}.json`)).catch(() => {});
+}
+
 async function prune(root) {
   const all = await listCheckpoints(root);
   const auto = all.filter((c) => !c.id.endsWith("-before-restore"));
@@ -208,6 +232,8 @@ export default function (pi) {
         if (changed.length) notice += ` ${changed.length} file(s) changed outside this session since the last task: ${changed.slice(0, 5).map((c) => c.path).join(", ")}${changed.length > 5 ? ", …" : ""}.`;
       }
       current = { id: cp.id, root };
+      const others = await markActive(root, { checkpoint: cp.id, cwd: ctx.cwd }).catch(() => []);
+      if (others.length) notice += ` WARNING: another Pi process (pid ${others.map((o) => o.pid).join(", ")}) is running a task in this same work tree. Edits will mix and restore cannot tell them apart; give each agent its own git worktree (/checkpoint isolate <name>).`;
       pi.events.emit("astra:checkpoint", { id: cp.id, root });
       pi.appendEntry(TASK_ENTRY, { id: cp.id, root, preTree: cp.tree, phase: "pre" });
       ctx.ui.notify(notice, "info");
@@ -221,6 +247,7 @@ export default function (pi) {
     if (!current) return;
     const { id, root } = current;
     current = undefined;
+    await clearActive(root);
     try {
       const cp = await createCheckpoint(root, { id, phase: "post", label: "task end" });
       lastPostTree.set(root, cp.tree);
@@ -229,7 +256,7 @@ export default function (pi) {
   });
 
   pi.registerCommand("checkpoint", {
-    description: "Checkpoints. Usage: status|on|off|now [label]|list|diff <id>|restore <id> [--apply] [--force]",
+    description: "Checkpoints. Usage: status|on|off|now [label]|list|diff <id>|restore <id> [--apply] [--force]|isolate <name> [--apply]",
     async handler(args, ctx) {
       const [option = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);
       const notify = (m, l = "info") => ctx.ui.notify(m, l);
@@ -247,6 +274,14 @@ export default function (pi) {
         } else if (option === "diff") {
           const plan = await planRestore(root, rest[0]);
           notify(renderPlan(plan));
+        } else if (option === "isolate") {
+          const name = (rest[0] ?? "").replace(/[^A-Za-z0-9._-]/g, "");
+          if (!name) { notify("Usage: /checkpoint isolate <name> [--apply]", "error"); return; }
+          const dir = path.join(path.dirname(root), `${path.basename(root)}.worktrees`, name);
+          const branch = `agent/${name}`;
+          if (!rest.includes("--apply")) { notify(`Would create git worktree ${dir} on new branch ${branch} from HEAD. Start the other agent there. Add --apply to create it.`); return; }
+          await git(root, ["worktree", "add", dir, "-b", branch, "HEAD"]);
+          notify(`Created worktree ${dir} (branch ${branch}). Run the other agent in that directory; merge or delete it when done.`);
         } else if (option === "restore") {
           const id = rest.find((r) => !r.startsWith("--"));
           const plan = await planRestore(root, id);

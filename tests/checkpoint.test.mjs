@@ -104,3 +104,21 @@ test("restore without a post snapshot uses the current tree", async () => {
     assert.equal(await readFile(path.join(root, "a.txt"), "utf8"), "head\n");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("other live Pi processes working in the same work tree are detected, stale markers are cleaned", async () => {
+  const { markActive, clearActive } = await import("../extensions/checkpoint.js");
+  const root = await fixture();
+  try {
+    assert.deepEqual(await markActive(root, { checkpoint: "a" }), []);
+    const marker = path.join(root, ".git", "astra-active");
+    // a different live process (the parent shell/test runner) and a dead pid
+    const { writeFile: write } = await import("node:fs/promises");
+    await write(path.join(marker, `${process.ppid}.json`), JSON.stringify({ checkpoint: "other" }));
+    await write(path.join(marker, "999999991.json"), "{}");
+    const others = await markActive(root, { checkpoint: "b" });
+    assert.deepEqual(others.map((o) => o.pid), [process.ppid]);
+    assert.equal(await exists(path.join(marker, "999999991.json")), false, "dead owner removed");
+    await clearActive(root);
+    assert.equal(await exists(path.join(marker, `${process.pid}.json`)), false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

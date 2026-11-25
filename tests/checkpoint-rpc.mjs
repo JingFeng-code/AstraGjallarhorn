@@ -40,5 +40,12 @@ try {
   assert.equal(await readFile(path.join(pi.work, "a.txt"), "utf8"), "user draft\n");
   assert.equal(await readFile(path.join(pi.work, "u.txt"), "utf8"), "untracked\n");
   await assert.rejects(access(path.join(pi.work, "created.txt")));
+  await pi.prompt("/checkpoint isolate agent-two");
+  await new Promise((r) => setTimeout(r, 800));
+  assert.match(pi.notices().at(-1), /Would create git worktree/);
+  await pi.prompt("/checkpoint isolate agent-two --apply");
+  await new Promise((r) => setTimeout(r, 2500));
+  assert.match(pi.notices().at(-1), /Created worktree/);
+  assert.match(git(pi.work, "worktree", "list"), /agent-two/);
   console.log("PASS checkpoint: automatic pre/post snapshot, preview, scoped restore through real Pi");
 } finally { await pi.close(); }

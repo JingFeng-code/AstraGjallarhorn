@@ -332,8 +332,13 @@ export class LspManager {
 
 // ---------------- formatting ----------------
 const SEVERITY = { 1: "error", 2: "warning", 3: "info", 4: "hint" };
-export function formatDiagnostics(file, diagnostics) {
-  return diagnostics.map((d) => `${file}:${d.range.start.line + 1}:${d.range.start.character + 1} ${SEVERITY[d.severity] ?? "error"} ${d.code ?? ""}${d.source ? ` (${d.source})` : ""}: ${d.message}`).join("\n");
+export function formatDiagnostics(file, diagnostics, sourceText) {
+  const lines = sourceText?.split(/\r?\n/);
+  return diagnostics.map((d) => {
+    const head = `${file}:${d.range.start.line + 1}:${d.range.start.character + 1} ${SEVERITY[d.severity] ?? "error"} ${d.code ?? ""}${d.source ? ` (${d.source})` : ""}: ${d.message}`;
+    const code = lines?.[d.range.start.line]?.trim();
+    return code ? `${head}\n    > ${code.slice(0, 200)}` : head;
+  }).join("\n");
 }
 export function normaliseLocations(result) {
   const list = Array.isArray(result) ? result : result ? [result] : [];
@@ -379,7 +384,7 @@ export default async function (pi) {
         const real = result.diagnostics.filter((d) => (d.severity ?? 1) <= 2);
         const errors = real.filter((d) => (d.severity ?? 1) === 1);
         if (!real.length) return text(`CLEAN: ${params.path} has no errors or warnings (server ${t.server}, ${result.source}, version ${result.version}${hidden ? `; ${hidden} info/hint item(s) hidden` : ""}).`, false, { status: "clean", version: result.version });
-        return text(`${errors.length ? "ERRORS" : "WARNINGS"}: ${real.length} diagnostic(s) in ${params.path}\n${formatDiagnostics(params.path, real)}`, false, { status: errors.length ? "errors" : "warnings", count: real.length, version: result.version });
+        return text(`${errors.length ? "ERRORS" : "WARNINGS"}: ${real.length} diagnostic(s) in ${params.path}\n${formatDiagnostics(params.path, real, await readFile(t.abs, "utf8").catch(() => undefined))}`, false, { status: errors.length ? "errors" : "warnings", count: real.length, version: result.version });
       } catch (error) { return text(`LSP unavailable: ${error.message}`, true, { status: "unavailable" }); }
     },
   });
