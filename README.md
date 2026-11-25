@@ -313,6 +313,8 @@ pwsh -File scripts\verify.ps1
 
 ## 工程驗證範例
 
+`/retry-limit on` 可在同一回合第三次相同失敗工具呼叫後中止執行，並提示檢查最後錯誤。`/retry-limit status` 查詢，`/retry-limit off` 關閉。預設關閉，每次新回合重置計數。它只處理 Pi 發出的 `tool_result` 錯誤事件，變更參數的重試與未發出該事件的錯誤不在此上限內。
+
 ### Hashline 編輯
 
 在 Pi 輸入 `/hashline {"file":"examples/sql/001-create-notes.sql","start":1}`，取得整檔 SHA-256 及行錨點。複製實際回傳的值到下列命令。省略 `last` 只替換一行，`lines: []` 移除指定範圍。

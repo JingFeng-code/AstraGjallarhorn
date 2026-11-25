@@ -2,7 +2,7 @@
 
 開發分支為 `feat/gate-recovery-foundation`，基礎修正 commit 為 `8565ad189e601d77fdd4c01d1ebde4927f3a7ddc`。以本分支最新 commit 取得交接文件。起始 `main` 為 `cf0f5248562ca3d061229ec0aa8d2f9b658227e4`。
 
-2026-11-25 在第二台 Windows 電腦以 Pi 1.6.0、Node 24.18.0、PowerShell 7.6.9 重跑 RPC 及同步回歸，兩者皆通過。隔離 Windows TTY 驗證 Alt+M 雙向切換、手動 /reload 保留模式及 /tree 開啟空 Session 的樹狀檢視。正式 Pi 已套用 Session 隔離修正及兩個既有套件的固定來源，`scripts/verify.ps1` 回傳 0（15 PASS、0 FAIL、1 MANUAL）。正式 TTY 補測 Alt+M 雙向切換，Herdr 隔離工作終端觀察到 Pi 的 idle、Provider、模型標籤及 Alt+M 切換。新增 [SQLite 驗證範例](examples/sql/README.md) 及 Windows CI，四項故障注入在本機、分支 CI 及 Draft PR CI 皆通過正常／失敗／修復序列。下方續接項目中，有訊息的 Tree 分支、Herdr 工作中及完成狀態、模型比較、pstack 完整工程實測及第三方候選仍待驗收。
+2026-11-25 在第二台 Windows 電腦以 Pi 1.6.0、Node 24.18.0、PowerShell 7.6.9 重跑 RPC 及同步回歸，兩者皆通過。隔離 Windows TTY 驗證 Alt+M 雙向切換、手動 /reload 保留模式及 /tree 開啟空 Session 的樹狀檢視。正式 Pi 已套用 Session 隔離修正及兩個既有套件的固定來源，`scripts/verify.ps1` 回傳 0（15 PASS、0 FAIL、1 MANUAL）。正式 TTY 補測 Alt+M 雙向切換，Herdr 隔離工作終端觀察到 Pi 的 idle、Provider、模型標籤及 Alt+M 切換。新增 [SQLite 驗證範例](examples/sql/README.md) 及 Windows CI，四項故障注入在本機、分支 CI 及 Draft PR CI 皆通過正常／失敗／修復序列。後續 Tree 分支及 Herdr 狀態見能力驗收紀錄。
 
 本機 SHA-256 基準比對涵蓋 340 個檔案。339 個一致，唯一差異是 Codex 的模型快取；未對該檔執行寫入。Pi 的認證、模型設定、舊模式預設及 `astra-herdr.js` 雜湊一致。正式備份由 apply 輸出其本機路徑，還原使用 `scripts/apply.ps1 -Restore -RestoreFrom <備份路徑>` 預覽，再視需要加上 `-Apply`。
 
@@ -40,20 +40,15 @@ node tests/mode-rpc.mjs $PiCli
 pwsh -NoProfile -File tests/sync.ps1
 ```
 
-上次在 Windows、Pi **1.6.0**、Node **24.14.0** 執行，兩個測試入口均回傳 **0**。RPC 使用同一隔離 agent 目錄的兩個真實 Pi 程序，覆蓋 Default／Deep Execution 的 0／7 個 DeepSeek Skills、切換與 reload、新 Session、Resume、Fork 和舊狀態檔容錯。同步使用合成設定，覆蓋 dry-run、pin 合併及驗證、備份還原與工作樹保護。測試內部確認未固定來源及重複項回傳 **1**，apply／export 衝突回傳 **3**。其他 Pi 版本及實際 Provider 請求未驗證。
+早期基準在 Windows、Pi **1.6.0**、Node **24.14.0** 執行，兩個測試入口均回傳 **0**。RPC 使用同一隔離 agent 目錄的兩個真實 Pi 程序，覆蓋 Default／Deep Execution 的 0／7 個 DeepSeek Skills、切換與 reload、新 Session、Resume、Fork 和舊狀態檔容錯。同步使用合成設定，覆蓋 dry-run、pin 合併及驗證、備份還原與工作樹保護。測試內部確認未固定來源及重複項回傳 **1**，apply／export 衝突回傳 **3**。其他 Pi 版本及實際 Provider 請求未驗證。
 
-## 尚未完成與接續順序
+## 目前驗收狀態
 
-1. **Gate 0-R2** 在隔離 Windows 互動終端補測 Alt+M、手動 `/reload`、Tree、Herdr 狀態回報及含模型回合的提示一致性。原測試終端在進入 TUI 前回報 `setRawMode EPERM`。Tree 設計為維持 Session 模式。Pi 在第一個對話訊息之前尚無可持久化的 Session 檔，這段期間的模式可在同程序 reload 後保留。還原前先預覽，確認備份後新增的設定編輯可保留。
-2. **Gate 1-R** 已確認 `architect`、`correct`、`create-verification-skill` 的明確呼叫探索。補測架構邊界、根因與防重犯、可重現的驗證命令。先將生成路徑改為 Pi 專屬位置，並審查必要的參考檔。上游固定 commit 與驗證證據見 Gate Recovery 報告。
-3. **Gate 2-R** 完成下表三個指定發行物的來源比對、遞迴相依、執行外連與 Windows 相容性審查。三份 npm tarball 均已核對 SHA-512 與內附 MIT 授權，未執行套件。
-4. **Gate 3-A/B/C** 在基礎與個別安全 Gate 通過後，依序實測驗證命令的 pass/fail/timeout、Hashline 的過期編輯防護、C#／TypeScript 診斷。各自通過後再測組合。目前沒有插件執行或 A/B 數據。
+- 正式 Pi 1.6.0 已安裝第一方 Hashline、工具設定及重試上限。重試上限預設關閉，`/retry-limit on` 啟用。隔離與正式安裝檔副本的真實 Pi RPC 都在第 3 次相同工具失敗後停止，測試提供者未收到第 4 次請求。
+- Better Edit 2.21.0 在離線 Windows Sandbox 經由 Pi 正常工具調度完成讀取、過期拒寫、重讀、精準編輯。模型回應由本機測試提供者依序回傳，真實 Ollama 模型與全量正式擴充組合仍待驗收。正式保留既有 Hashline。
+- Lens 4.5.2 的 TypeScript 錯誤、定義與引用已有 Sandbox 證據。乾淨檔案 LSP 回報 inconclusive，獨立編譯器確認修正。C# LSP、下載控制與真實模型工具整合未放行。
+- pstack 的 architect 已正式驗收。correct、create-verification-skill 與真實模型 A/B 仍待驗收。
+- Node 24.18.0 已符合 context-mode 2.2.3 的 Node 最低版本。Runtime 行為尚未放行。pi-verify 的上游比對仍待確認，現有工程驗證使用 Pi RPC 與 CI 共用腳本。
+- Sandbox 已通過離線 Windows 執行驗收，僅用於開發測試。跨機正式流程維持先 dry-run，確認範圍後 Apply，再執行 Verify。
 
-| 固定候選 | 待確認重點 |
-|---|---|
-| `pi-verify@0.1.1` | 發行物的上游來源、專案命令信任界線、Windows timeout 和程序清理。 |
-| `pi-better-edit@2.21.0` | Bundle 對照、`read`／`edit` 覆寫、並行編輯和診斷相容性。 |
-| `pi-lens@4.5.2` | Native 依賴、grammar／LSP 下載、網路權限與自動格式化行為。 |
-| `context-mode@2.2.3` | DEFERRED。Node 最低要求 24.15.0，原機為 24.14.0。 |
-
-保持測試目錄與正式 Pi、公司資料、共用 Skills、其他 Agent 和 Herdr 設定分離。第三方執行測試需具備實際的 OS 與網路限制。正式 Pi 套用、全域工具升級或額外費用須依原任務授權處理。
+早期 Gate 歷史和已完成的測試保存在上方連結，不需要重新驗證 Sandbox 啟用或重做已通過的候選測試。

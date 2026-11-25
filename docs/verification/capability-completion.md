@@ -42,3 +42,8 @@ Windows、Pi 1.6.0、Node 24.18.0。正式 `/verify` 使用已同步的提示。
 | C# Roslyn | 來賓用 .NET 10.0.12 啟動既有 Microsoft Roslyn server 的 `--help`，確認提供 stdio 模式。Lens 探針未回報注入的語法錯誤，結果為 inconclusive。另觀察到 Lens 在缺少 C# tree-sitter grammar 時嘗試下載，離線環境中下載失敗。 |
 
 兩個套件的 Windows 啟動、直接工具功能與組合同時載入已實證。模型工具整合、C# LSP、Lens 的執行期下載控制及正式設定受影響範圍仍待放行。保留既有第一方 Hashline；候選 `pi-better-edit` 會覆寫模型的 `read`／`edit`，其覆寫與正式 Pi 其他擴充的交互作用尚無證據。這次候選程式碼只在來賓執行。
+
+## 正常工具調度與重試上限
+
+- Better Edit 2.21.0 在離線 Sandbox 由本機串流測試提供者驅動 Pi 正常工具調度。`read → edit（過期拒寫）→ read → edit` 四個工具事件與檔案內容均符合預期。同一實例也載入第一方 mode-switch、Hashline 與 tool-profile。此實測不含真實 Ollama 模型、所有正式擴充、Deep Execution 切換或完整工具設定驗收。
+- 第一方 `/retry-limit` 預設關閉。隔離與正式安裝檔副本的 Pi 1.6.0 測試皆確認第 3 次相同 `read` 失敗中止，測試提供者未收到第 4 次請求。單元測試另驗證預設關閉、成功清除相同錯誤計數及新回合重置。尚未驗證未知工具名稱的攔截或 Herdr 自動交接。

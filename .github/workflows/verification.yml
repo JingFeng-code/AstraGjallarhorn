@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: '24.18.0'
       - run: ./scripts/verify-project.ps1 -Suite sql
-      - run: node --test tests/hashline.test.mjs tests/tool-profile.test.mjs
+      - run: node --test tests/hashline.test.mjs tests/tool-profile.test.mjs tests/retry-limit.test.mjs
   dotnet:
     runs-on: windows-latest
     steps:

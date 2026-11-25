@@ -28,6 +28,12 @@
   "entries": [
     {
       "type": "file",
+      "source": "agent/extensions/retry-limit.js",
+      "target": "extensions/retry-limit.js",
+      "note": "Pi 選用的相同失敗工具呼叫上限"
+    },
+    {
+      "type": "file",
       "source": "agent/extensions/hashline.js",
       "target": "extensions/hashline.js",
       "note": "Pi 按需 Hashline 替換與過期檢查"
