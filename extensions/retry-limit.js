@@ -1,6 +1,7 @@
 export default function (pi) {
   let enabled = false;
   const failures = new Map();
+  const calls = new Map();
   let stopped = false;
 
   pi.registerCommand("retry-limit", {
@@ -18,16 +19,25 @@ export default function (pi) {
 
   pi.on("agent_start", () => {
     failures.clear();
+    calls.clear();
     stopped = false;
   });
 
-  pi.on("tool_result", (event, ctx) => {
+  pi.on("tool_execution_start", (event) => {
     if (!enabled || stopped) return;
-    const key = JSON.stringify([event.toolName, event.input], (_key, value) =>
+    const key = JSON.stringify([event.toolName, event.args], (_key, value) =>
       value && typeof value === "object" && !Array.isArray(value)
         ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
         : value,
     );
+    calls.set(event.toolCallId, key);
+  });
+
+  pi.on("tool_execution_end", (event, ctx) => {
+    if (!enabled || stopped) return;
+    const key = calls.get(event.toolCallId);
+    if (key === undefined) return;
+    calls.delete(event.toolCallId);
     if (!event.isError) {
       failures.delete(key);
       return;

@@ -11,7 +11,12 @@ test("opt-in stops at three identical errors and resets for a new run", async ()
     registerCommand: (_name, { handler }) => { command = handler; },
   });
   const ctx = { abort: () => { aborts++; }, ui: { notify() {} } };
-  const result = (input, isError = true) => hooks.get("tool_result")({ toolName: "read", input, isError }, ctx);
+  let id = 0;
+  const result = (args, isError = true) => {
+    const call = { toolName: "read", toolCallId: String(++id) };
+    hooks.get("tool_execution_start")({ ...call, args });
+    hooks.get("tool_execution_end")({ ...call, isError }, ctx);
+  };
   const first = { path: "missing", offset: 1 };
   for (let i = 0; i < 3; i++) result(first);
   assert.equal(aborts, 0);
