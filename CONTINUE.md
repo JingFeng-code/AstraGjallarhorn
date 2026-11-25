@@ -2,7 +2,11 @@
 
 開發分支為 `feat/gate-recovery-foundation`，基礎修正 commit 為 `8565ad189e601d77fdd4c01d1ebde4927f3a7ddc`。以本分支最新 commit 取得交接文件。起始 `main` 為 `cf0f5248562ca3d061229ec0aa8d2f9b658227e4`。
 
-2026-11-25 在第二台 Windows 電腦以 Pi 1.6.0、Node 24.18.0、PowerShell 7.6.9 重跑 RPC 及同步回歸，兩者皆通過。隔離 Windows TTY 驗證 Alt+M 雙向切換、手動 /reload 保留模式及 /tree 開啟空 Session 的樹狀檢視。正式 Pi 已套用 Session 隔離修正及兩個既有套件的固定來源，`scripts/verify.ps1` 回傳 0（15 PASS、0 FAIL、1 MANUAL）。另外新增 [SQLite 驗證範例](examples/sql/README.md) 及 Windows CI，四項故障注入皆通過正常／失敗／修復序列。下方續接項目中，涉及有訊息的 Tree 分支、Herdr 回報、模型、pstack 工程實測及第三方候選仍待驗收。
+2026-11-25 在第二台 Windows 電腦以 Pi 1.6.0、Node 24.18.0、PowerShell 7.6.9 重跑 RPC 及同步回歸，兩者皆通過。隔離 Windows TTY 驗證 Alt+M 雙向切換、手動 /reload 保留模式及 /tree 開啟空 Session 的樹狀檢視。正式 Pi 已套用 Session 隔離修正及兩個既有套件的固定來源，`scripts/verify.ps1` 回傳 0（15 PASS、0 FAIL、1 MANUAL）。正式 TTY 補測 Alt+M 雙向切換，Herdr 隔離工作終端觀察到 Pi 的 idle、Provider、模型標籤及 Alt+M 切換。新增 [SQLite 驗證範例](examples/sql/README.md) 及 Windows CI，四項故障注入在本機、分支 CI 及 Draft PR CI 皆通過正常／失敗／修復序列。下方續接項目中，有訊息的 Tree 分支、Herdr 工作中及完成狀態、模型比較、pstack 完整工程實測及第三方候選仍待驗收。
+
+本機 SHA-256 基準比對涵蓋 340 個檔案。339 個一致，唯一差異是 Codex 的模型快取；未對該檔執行寫入。Pi 的認證、模型設定、舊模式預設及 `astra-herdr.js` 雜湊一致。正式備份由 apply 輸出其本機路徑，還原使用 `scripts/apply.ps1 -Restore -RestoreFrom <備份路徑>` 預覽，再視需要加上 `-Apply`。
+
+新增 [C#](examples/dotnet/README.md) 與 [Vue／TypeScript](examples/vue/README.md) 工程驗證。Windows 本機驗證 C# 的編譯型別、Roslyn 分析、ArchUnitNET 邊界及 xUnit 整合測試故障。Vue 驗證 lint、vue-tsc、Vitest 和瀏覽器 runtime 故障。各項均跑過正常、故障、還原。Vue 的型別錯誤退出碼為 2，其餘上述注入為 1。Playwright 的首次故障注入暴露原測試只抓 pageerror。加入 console error 檢查後，Vue 記錄的例外會使 E2E 失敗。
 
 - [Gate 0–2 首輪盤點](docs/verification/gate-0-2.md)
 - [Gate Recovery 修正與驗證證據](docs/verification/gate-recovery.md)

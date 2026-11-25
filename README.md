@@ -308,6 +308,11 @@ pwsh -File scripts\verify.ps1
   匯入 `main` 提交 `d4f1ebe72e8314c3a0c6135bb82f623c650f7218`（2026-10-28）。
   授權文件保留於 `modes/deep-execution/deepseek-stack-LICENSE`。
 - `extensions/mode-switch.ts`：本專案自製。
-# 工程驗證範例
+
+## 工程驗證範例
 
 [SQLite 驗證範例](examples/sql/README.md)提供可獨立執行的 migration、schema 與欄位限制驗證，以及四項故障注入回歸。Windows CI 執行相同命令。
+
+[C# 驗證範例](examples/dotnet/README.md)提供 Roslyn 分析、xUnit 整合測試與 ArchUnitNET 依賴方向檢查。
+
+[Vue／TypeScript 驗證範例](examples/vue/README.md)提供 ESLint、vue-tsc、Vitest、Vite 建置及 Playwright 瀏覽器驗證。

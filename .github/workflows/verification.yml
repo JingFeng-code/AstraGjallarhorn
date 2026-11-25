@@ -1,7 +1,6 @@
 name: Verification
 
 on:
-  push:
   pull_request:
 
 permissions:
@@ -19,3 +18,33 @@ jobs:
           node-version: '24.18.0'
       - run: node examples/sql/verify.mjs
       - run: node --test examples/sql/verify.test.mjs
+  dotnet:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.401'
+      - run: dotnet restore examples/dotnet/Notes.Tests.csproj --locked-mode
+      - run: dotnet build examples/dotnet/Notes.Tests.csproj --no-restore
+      - run: dotnet test examples/dotnet/Notes.Tests.csproj --no-build
+  vue:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: examples/vue
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:e2e
