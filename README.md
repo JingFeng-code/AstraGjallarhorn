@@ -316,3 +316,5 @@ pwsh -File scripts\verify.ps1
 [C# 驗證範例](examples/dotnet/README.md)提供 Roslyn 分析、xUnit 整合測試與 ArchUnitNET 依賴方向檢查。
 
 [Vue／TypeScript 驗證範例](examples/vue/README.md)提供 ESLint、vue-tsc、Vitest、Vite 建置及 Playwright 瀏覽器驗證。
+
+Pi 的 `/skill:architect <設計題目>` 比較模組邊界與相依方向。此技能只在明確呼叫時載入。來源為 [pstack 固定版本](https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388/pstack/skills/architect)，MIT 授權隨檔同步。

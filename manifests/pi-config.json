@@ -46,6 +46,18 @@
     },
     {
       "type": "file",
+      "source": "agent/skills/architect/SKILL.md",
+      "target": "agent/skills/architect/SKILL.md",
+      "note": "pstack architect，僅透過 /skill:architect 載入"
+    },
+    {
+      "type": "file",
+      "source": "agent/skills/architect/LICENSE",
+      "target": "agent/skills/architect/LICENSE",
+      "note": "pstack MIT 授權"
+    },
+    {
+      "type": "file",
       "source": "modes/README.md",
       "target": "modes/README.md",
       "note": "模式使用說明與還原步驟"

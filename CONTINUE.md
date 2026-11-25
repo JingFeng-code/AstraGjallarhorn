@@ -8,6 +8,8 @@
 
 新增 [C#](examples/dotnet/README.md) 與 [Vue／TypeScript](examples/vue/README.md) 工程驗證。Windows 本機驗證 C# 的編譯型別、Roslyn 分析、ArchUnitNET 邊界及 xUnit 整合測試故障。Vue 驗證 lint、vue-tsc、Vitest 和瀏覽器 runtime 故障。各項均跑過正常、故障、還原。Vue 的型別錯誤退出碼為 2，其餘上述注入為 1。Playwright 的首次故障注入暴露原測試只抓 pageerror。加入 console error 檢查後，Vue 記錄的例外會使 E2E 失敗。
 
+pstack `architect` 已同步至正式 Pi 的 `agent/skills/architect`。隔離 Pi 使用本機 Ollama 的 `mimo-v2.6-agent32k:latest` 完成 SQLite 模組邊界與相依方向比較，指定的驗證命令已獨立執行並回傳 0。三次工具讀取中兩次成功，一次將目錄當作檔案讀取而失敗。正式 Pi 透過 RPC 查得 `skill:architect`，其 frontmatter 設定由使用者明確呼叫才載入。正式套用只有新增技能與隨附 MIT 授權兩個檔案。隔離測試可探索三個 pstack 指令，`correct` 的兩次實測分別因執行時間與重複呼叫不可用工具而停止。
+
 - [Gate 0–2 首輪盤點](docs/verification/gate-0-2.md)
 - [Gate Recovery 修正與驗證證據](docs/verification/gate-recovery.md)
 
