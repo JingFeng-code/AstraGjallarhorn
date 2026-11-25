@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { startPi, piCli } from "./lib/pi-rpc.mjs";
+import { resolveServer } from "../extensions/lsp.js";
 
 const procs = (needle) => Number(execFileSync("pwsh", ["-NoProfile", "-Command", `(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${needle}*' -and $_.ProcessId -ne $PID } | Measure-Object).Count`], { encoding: "utf8" }).trim());
 const text = (e) => (e.result?.content ?? []).map((c) => c.text).join("\n");
@@ -51,6 +52,9 @@ if (tsls) {
 } else console.log("SKIP lsp(ts): ASTRA_TSLS not set");
 
 // ---------- C# ----------
+const roslyn = await resolveServer("csharp", process.cwd());
+await roslyn.cleanup?.();
+if (roslyn.error) { console.log(`SKIP lsp(cs): ${roslyn.error}`); process.exit(0); }
 const example = fileURLToPath(new URL("../examples/dotnet", import.meta.url));
 const cs = await startPi({
   cli: piCli(), extensions: ["lsp.js"],

@@ -211,6 +211,22 @@ try {
         Add-Result -Name 'Pi 套件' -Status 'PASS' -Detail (($packageItems | ForEach-Object { "{0}@{1}" -f (Get-Prop $_ 'name'), (Get-Prop $_ 'version') }) -join ', ')
     }
 
+    $lspSpec = Get-Prop $packagesManifest 'lsp'
+    if ($lspSpec) {
+        $lspProblems = @()
+        foreach ($pkg in @(Get-Prop $lspSpec 'packages' @())) {
+            $pkgJson = Join-Path $pi ("{0}/node_modules/{1}/package.json" -f (Get-Prop $lspSpec 'installDir' 'agent/lsp'), (Get-Prop $pkg 'name'))
+            if (-not (Test-Path -LiteralPath $pkgJson -PathType Leaf)) { $lspProblems += ("{0} 未安裝" -f (Get-Prop $pkg 'name')); continue }
+            $have = [string](Get-Content -LiteralPath $pkgJson -Raw | ConvertFrom-Json).version
+            if ($have -ne [string](Get-Prop $pkg 'version')) { $lspProblems += ("{0} 版本 {1}（要求 {2}）" -f (Get-Prop $pkg 'name'), $have, (Get-Prop $pkg 'version')) }
+        }
+        if ($lspProblems.Count -gt 0) {
+            Add-Result -Name 'TypeScript LSP 伺服器' -Status 'WARN' -Detail ((($lspProblems) -join '；') + '。安裝：' + [string](Get-Prop $lspSpec 'installCommand'))
+        } else {
+            Add-Result -Name 'TypeScript LSP 伺服器' -Status 'PASS' -Detail 'typescript 與 typescript-language-server 版本符合固定值'
+        }
+    }
+
     # --------------------------------------------------------- 4/5/6. 模式
     Write-Section '4-6. 模式載入與 ds-* Skills'
     $requiredSkills = @($manifest.deepExecution.requiredSkills)

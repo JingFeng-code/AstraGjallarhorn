@@ -70,6 +70,42 @@
     },
     {
       "type": "file",
+      "source": "agent/extensions/lsp.js",
+      "target": "extensions/lsp.js",
+      "note": "Pi LSP 橋接：TypeScript 與 C# 診斷、定義、引用（不自動下載）"
+    },
+    {
+      "type": "file",
+      "source": "agent/extensions/diff-review.js",
+      "target": "extensions/diff-review.js",
+      "note": "Pi 唯讀 review_diff 工具與 /review-diff"
+    },
+    {
+      "type": "file",
+      "source": "agent/extensions/handoff.js",
+      "target": "extensions/handoff.js",
+      "note": "Pi 明確啟用的 Herdr 自動交接（預設關閉）"
+    },
+    {
+      "type": "file",
+      "source": "agent/extensions/task-recovery.js",
+      "target": "extensions/task-recovery.js",
+      "note": "Pi 任務日誌、重啟後安全續接與 Timeout"
+    },
+    {
+      "type": "file",
+      "source": "agent/extensions/checkpoint.js",
+      "target": "extensions/checkpoint.js",
+      "note": "Pi 自動 Checkpoint：任務前後快照、預覽與範圍限定還原"
+    },
+    {
+      "type": "file",
+      "source": "agent/extensions/command-guard.js",
+      "target": "extensions/command-guard.js",
+      "note": "Pi 通用安全指令防護（啟發式政策，不是 OS Sandbox）"
+    },
+    {
+      "type": "file",
       "source": "agent/extensions/mode-switch.ts",
       "target": "extensions/mode-switch.ts",
       "note": "自訂模式切換擴充功能（取代無法在 Windows 運作的 pi-profile-switch）"

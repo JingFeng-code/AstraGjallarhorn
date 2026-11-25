@@ -17,7 +17,15 @@ jobs:
         with:
           node-version: '24.18.0'
       - run: ./scripts/verify-project.ps1 -Suite sql
-      - run: node --test tests/hashline.test.mjs tests/tool-profile.test.mjs tests/retry-limit.test.mjs
+      - name: Pinned TypeScript language server
+        shell: pwsh
+        run: |
+          $lsp = Join-Path $env:RUNNER_TEMP 'astra-lsp'
+          npm install --prefix $lsp --ignore-scripts --save-exact --no-audit --no-fund typescript@5.9.3 typescript-language-server@6.1.0
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $cli = Join-Path $lsp 'node_modules/typescript-language-server/lib/cli.mjs'
+          "ASTRA_TSLS=$cli" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - run: node --test tests/*.test.mjs
       - name: Pi RPC and sync regression
         shell: pwsh
         run: |
@@ -31,6 +39,10 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           node tests/retry-limit-rpc.mjs $cli
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          foreach ($t in 'command-guard-rpc', 'checkpoint-rpc', 'handoff-rpc', 'task-recovery-rpc', 'diff-review-rpc', 'lsp-rpc') {
+            node "tests/$t.mjs" $cli
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
           pwsh -NoProfile -File tests/sync.ps1
           exit $LASTEXITCODE
   dotnet:
