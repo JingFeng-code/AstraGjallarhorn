@@ -206,6 +206,7 @@ export default function (pi) {
         if (changed.length) notice += ` ${changed.length} file(s) changed outside this session since the last task: ${changed.slice(0, 5).map((c) => c.path).join(", ")}${changed.length > 5 ? ", …" : ""}.`;
       }
       current = { id: cp.id, root };
+      pi.events.emit("astra:checkpoint", { id: cp.id, root });
       pi.appendEntry(TASK_ENTRY, { id: cp.id, root, preTree: cp.tree, phase: "pre" });
       ctx.ui.notify(notice, "info");
       prune(root).catch(() => {});

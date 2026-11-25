@@ -6,6 +6,7 @@ export default function (pi) {
   let policy = "off";
   const failures = new Map();
   const calls = new Map();
+  const argsById = new Map();
   let stopped = false;
   let lastFailedTool;
   let consecutive = 0;
@@ -40,6 +41,7 @@ export default function (pi) {
   pi.on("agent_start", () => {
     failures.clear();
     calls.clear();
+    argsById.clear();
     stopped = false;
     lastFailedTool = undefined;
     consecutive = 0;
@@ -53,6 +55,7 @@ export default function (pi) {
         : value,
     );
     calls.set(event.toolCallId, key);
+    argsById.set(event.toolCallId, event.args);
   });
 
   pi.on("tool_execution_end", (event, ctx) => {
@@ -76,6 +79,10 @@ export default function (pi) {
       const summary = `Retry limit stopped ${event.toolName} after ${reason}. Last tool call: ${event.toolCallId}. Review its error in this session before resuming; pass this summary to Herdr manually if needed.`;
       ctx.abort();
       pi.appendEntry(HANDOFF_ENTRY, { summary });
+      pi.events.emit("astra:retry-stopped", {
+        policy, reason, tool: event.toolName, toolCallId: event.toolCallId, args: argsById.get(event.toolCallId),
+        error: JSON.stringify(event.result ?? null).slice(0, 1200), summary,
+      });
       ctx.ui.notify(summary, "warning");
     }
   });

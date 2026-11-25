@@ -10,8 +10,8 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 // script: array of steps. step = { text } | { tools: [{name, args}] } | function(requestBody, n) => step
-export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [] }) {
-  const cwd = await mkdtemp(path.join(tmpdir(), "astra-rpc-"));
+export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false }) {
+  const cwd = baseDir ?? await mkdtemp(path.join(tmpdir(), "astra-rpc-"));
   const agent = path.join(cwd, "agent");
   const work = path.join(cwd, "work");
   await mkdir(path.join(agent, "extensions"), { recursive: true });
@@ -94,8 +94,14 @@ export async function startPi({ cli, script, extensions, extraFiles = {}, env = 
       rl.close();
       if (child.exitCode === null && child.signalCode === null) await new Promise((resolve) => { child.once("exit", resolve); child.kill(); });
       server.close();
-      await rm(cwd, { recursive: true, force: true, maxRetries: 3 });
+      if (!keep) await rm(cwd, { recursive: true, force: true, maxRetries: 3 });
     },
+    async crash() {
+      rl.close();
+      await new Promise((resolve) => { child.once("exit", resolve); if (process.platform === "win32") spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"]); else child.kill("SIGKILL"); });
+      server.close();
+    },
+    pid: child.pid,
   };
   await harness.send("get_state");
   return harness;
