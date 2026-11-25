@@ -251,7 +251,7 @@ export async function resolveServer(language, root) {
       env: { DOTNET_CLI_TELEMETRY_OPTOUT: "1", DOTNET_NOLOGO: "1", DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1", DOTNET_CLI_UI_LANGUAGE: "en", VSLANG: "1033", PreferredUILang: "en-US" }, cleanup: () => rm(logDir, { recursive: true, force: true }),
       configuration: (item) => {
         const section = item.section ?? "";
-        if (/enableAutomaticRestore/i.test(section)) return false; // no implicit NuGet restore / network
+        if (/automatic_?restore/i.test(section) || /file_based_programs/i.test(section)) return false; // no implicit NuGet restore / network
         if (/projects\.binary_log_path|dotnet_binary_log/i.test(section)) return null;
         return null;
       },
