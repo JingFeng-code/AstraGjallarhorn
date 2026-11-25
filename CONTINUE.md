@@ -61,3 +61,10 @@ pwsh -NoProfile -File tests/sync.ps1
 - 跨機請在乾淨工作樹同步，執行 `scripts/apply.ps1 -StrictVersion` 預覽。若缺 Better Edit，從停用 lifecycle 的暫存 npm 安裝預演核對該機既有 lock 不會被升級，再以 `npm install --prefix "$env:USERPROFILE/.pi/agent/npm" --ignore-scripts --legacy-peer-deps --save-exact --no-audit --no-fund pi-better-edit@2.21.0` 安裝到 Pi 私有 npm 目錄。之後 Apply 並 Verify。先保存該機 Pi 的 npm lock 及設定。Sandbox 維持開發驗收用途。
 - 本地模型產出的可攜 `verify-sql` 草稿通過 Pi 探索及原樣命令 0、1、0 的驗收。`correct` 在原生工具下修復通過，但 Better Edit 組合兩次對多行 SQL 注入額外語法問題，未套用。下一個放行條件是模型只替換目標單行並通過原有 regression。
 - Lens 的 TypeScript 清除與 C# 診斷仍未放行。原生 Compaction 與重新開啟 Session 已補測；Context Mode 的攔截與資料恢復仍無取得等效實證，保留原生功能。完整 Gate 狀態與 A/B 見能力驗收紀錄。
+
+## v0.2 驗收更新
+
+- 正式新增 pstack `correct` 的 Pi 適配與 MIT 授權。真實本地模型在隔離 Pi 使用 Better Edit 修正多行 SQL 的單一約束值，原驗證回傳 0，且與基準內容逐行一致。正式 Pi 已驗證可以探索指令。兩次先前的相鄰行破壞仍保留作為回歸證據。
+- 正式 Pi 的真實本地模型已完成 Vue 合成 Runtime 修復。Playwright 首次退出 1，模型讀取並刪除合成 console error 後，建置和 Playwright 都回傳 0。
+- 離線 Roslyn stdio 初始化、專案 restore 及 CS1525 語法診斷已通過。語意探針缺少預期 CS0029，正式 C# LSP 未放行。TS 診斷清除和 Lens 執行期下載控制仍有原來的放行條件。
+- Plan／Diff 使用提供內容的唯讀模型審查可用。模型自動擷取 diff 的測試未通過。手動 Git checkpoint 已驗證恢復 tracked 與 untracked 內容。自動 Checkpoint、通用安全指令防護、背景工作恢復及自動 Herdr 交接仍為必要發布阻塞。

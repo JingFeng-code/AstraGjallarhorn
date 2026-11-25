@@ -348,3 +348,9 @@ pwsh -File scripts\verify.ps1
 Pi 的 `/skill:architect <設計題目>` 比較模組邊界與相依方向。此技能只在明確呼叫時載入。來源為 [pstack 固定版本](https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388/pstack/skills/architect)，MIT 授權隨檔同步。
 
 `/skill:create-verification-skill <已實測的命令、工作目錄、成功與失敗退出碼>` 產出可審查的 Markdown 草稿。驗證草稿中的原樣命令後，再存入專案的 `.pi/skills/<name>/SKILL.md`。這是 [pstack](https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388/pstack) 的精簡 Pi 適配，使用明確呼叫、相對路徑及實際退出碼，附 MIT 授權。
+
+`/skill:correct <重現命令、失敗證據及目標檔案>` 引導根因修復。使用 Better Edit 替換一行時，把實際的同一錨點放進兩個端點，複製目標行後只改出錯的值。保留既有回歸驗證，並以原命令確認修正。
+
+手動 Plan／Diff Review 可向 Pi 提供已擷取的計畫、需求及 `git diff`。請模型指出阻擋問題、應保留的測試及實際檔案位置。使用 Review 工具設定可限制模型工具。自動擷取 diff 的流程另計。
+
+若專案沒有任務 Checkpoint，可在專用 Git 工作樹執行 `git stash push --include-untracked -m "checkpoint"`。保存該 stash 的識別碼，只在核對目前工作樹乾淨後用 `git stash apply <id>`。先以 `git status --short` 驗證，還原後核對檔案。此手動流程已在合成工作樹驗證 tracked 和 untracked 內容。

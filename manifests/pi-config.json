@@ -28,6 +28,18 @@
   "entries": [
     {
       "type": "file",
+      "source": "agent/skills/correct/SKILL.md",
+      "target": "agent/skills/correct/SKILL.md",
+      "note": "Pi 專屬 pstack 修正技能"
+    },
+    {
+      "type": "file",
+      "source": "agent/skills/correct/LICENSE",
+      "target": "agent/skills/correct/LICENSE",
+      "note": "pstack MIT 授權"
+    },
+    {
+      "type": "file",
       "source": "agent/skills/create-verification-skill/SKILL.md",
       "target": "agent/skills/create-verification-skill/SKILL.md",
       "note": "Pi 專屬 pstack 驗證技能產生器"

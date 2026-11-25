@@ -73,3 +73,22 @@ Windows、Pi 1.6.0、Node 24.18.0。正式 `/verify` 使用已同步的提示。
 | 無驗證診斷／提供既有失敗診斷 | 各一次讀取與修改，驗證 0，13.20 秒。769/231/3078。 | 3 次呼叫含 1 次讀取失敗，驗證 0，16.43 秒。799/315/3251。這個案例未觀察到導入診斷能減少呼叫。 |
 
 Tool Profile 首輪的單檔防護只接受相對字串，誤拒合成檔案的絕對路徑。改為正規化後限定同一個檔案，再重跑兩組。Better Edit 的真實工具整合另有實機證據，與上述配對所測的變因不同。
+
+## v0.2 凍結驗收
+
+| 必要能力 | 狀態與證據 |
+|---|---|
+| Foundation | PASS。Pi 1.6.0、模式、套件固定、備份／還原、同步、CI 與 RPC 回歸。 |
+| pstack | PASS。architect 和 create-verification-skill 保留。correct 第三次以明確單行端點與完整原行指引，在實際 Better Edit 改好多行遷移的約束。獨立驗證回傳 0，並確認除錯誤值外未改內容。正確技能已正式同步及探索。 |
+| Hashline、SQL／.NET／Vue Harness、Regression | PASS。保留正式 Better Edit 和第一方 Hashline 的已驗證路徑。CI 及正式 Pi RPC 各組回歸通過。 |
+| 自主 Quality Gate、模型修復、Runtime | PASS，限已驗證 SQL 及 Vue 合成案例。Vue 的真實模型依序取得 Playwright 1、錨點讀取、錨點刪除注入的 console error、build 0、Playwright 0。 |
+| TypeScript LSP | BLOCKED。已確認 Lens 的錯誤、定義與引用。仍需確定性診斷清除及退出清理，並限制未放行語言與執行期下載。 |
+| C# LSP | BLOCKED。離線來賓的 Roslyn stdio 初始化、CS1525、.NET SDK 10.0.401 專案離線 restore 通過。Restore 首輪缺 reference packs，補齊後通過，但 pull diagnostics 未回報 CS0029。仍需確認 Roslyn 語意工作區和文件同步，再驗證 Pi 內的語意、導航與清除。 |
+| Retry Limit、未知工具、Timeout、Cancel、子程序 | PASS，保留已有上限、退出碼及取消和清理證據。 |
+| Context、Compaction、模型切換 | REPLACED，使用 Pi 原生功能。大型日誌保留及截斷、Session Compaction 摘要重開、原生模型選擇和復原已有驗收。 |
+| 長任務恢復、Checkpoint | Session 摘要重新載入已驗證。手動 Git checkpoint 在合成工作樹逐位元組還原 tracked 及 untracked 內容。執行中背景工作恢復及 Pi 自動 Checkpoint 尚未驗收。 |
+| 安全指令防護、自動 Herdr 交接 | BLOCKED。只有限定合成檔案及命令的測試政策，尚缺正式 Pi 可設定的通用防護。手動失敗摘要可用。自動交接需要已驗證的接收者選擇與隔離流程。 |
+| Local／Cloud／Review、Plan Review、Diff Review | Profiles 已正式驗證。真實模型用提供的計畫與實際 Git diff 指出超過 40 字元和移除測試的問題，檔案雜湊未改。模型自行擷取 diff 的原先測試反覆呼叫未允許命令，已中止；自動擷取尚未放行。 |
+| 模型 A/B | PASS，保留上一輪真實本地模型單次配對及 PR 的原生／Better Edit 資料。 |
+
+發布結論：Draft PR 可供評審。必要 LSP、正式安全政策及自動交接尚未具備放行證據，v0.2 不標為完整。
