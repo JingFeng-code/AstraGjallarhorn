@@ -1,7 +1,7 @@
 const profiles = {
   local: ["read", "edit", "write", "bash"],
   cloud: ["read", "edit", "write"],
-  review: ["read", "grep", "find", "ls"],
+  review: ["read", "grep", "find", "ls", "review_diff"],
 };
 
 export default function (pi) {
