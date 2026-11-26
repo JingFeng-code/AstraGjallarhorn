@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { Journal, buildResumePrompt, classifyTool, findOrphans, pidAlive, summarizeTools } from "../extensions/task-recovery.js";
+import { Journal, buildResumePrompt, classifyTool, findOrphans, pidAlive, summarizeTools, selectResumeTask, claimResume } from "../extensions/task-recovery.js";
 
 const task = (over = {}) => ({
   id: "t1", sessionId: "s", cwd: "/p", prompt: "migrate the notes table", startedAt: new Date().toISOString(), ownerPid: 999999991, status: "running",
@@ -84,4 +84,39 @@ test("orphan finder only reports children created during the task", async () => 
   const rows = [{ pid: 11, name: "node.exe", created: start + 1000 }, { pid: 12, name: "old.exe", created: start - 60_000 }];
   const found = await findOrphans(4242, new Date(start).toISOString(), async (owner) => { assert.equal(owner, 4242); return rows; });
   if (process.platform === "win32") assert.deepEqual(found.map((r) => r.pid), [11]);
+});
+
+test("natural-language recovery selection is scoped and does not guess among candidates", () => {
+  const a = task({id:"a",status:"interrupted"});
+  const b = task({id:"b",status:"timeout"});
+  const other = task({id:"other",cwd:"/other",status:"interrupted"});
+  const claimed = task({id:"claimed",status:"aborted",resumedBy:"other"});
+  assert.equal(selectResumeTask([a,other,claimed],"/p").task.id,"a");
+  assert.deepEqual(selectResumeTask([a,b,other,claimed],"/p").candidates.map(t=>t.id),["a","b"]);
+  assert.equal(selectResumeTask([a,b],"/p","b").task.id,"b");
+  assert.equal(selectResumeTask([other,claimed],"/p","other").task,undefined);
+  assert.equal(selectResumeTask([task()],"/p").task,undefined);
+});
+test("claim rechecks scope and persisted state under lock; duplicate continuation refused", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(),"astra-claim-"));
+  try {
+    const j = new Journal(dir);
+    const a = task({id:"a",status:"interrupted"});
+    await j.save(a);
+    assert.equal((await claimResume(j,a,"/other")).ok,false);
+    const first = await claimResume(j,a,"/p");
+    assert.equal(first.ok,true);
+    assert.equal((await claimResume(j,a,"/p")).ok,false);
+    await first.release();
+    assert.equal((await claimResume(j,a,"/p")).ok,false);
+    assert.match((await j.load("a")).resumedBy,/pid/);
+  } finally { await rm(dir,{recursive:true,force:true}); }
+});
+test("a just-created resume lock with no owner yet is not removed", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(),"astra-lock-"));
+  try {
+    const j = new Journal(dir);
+    await writeFile(path.join(dir,"a.resume.lock"),"");
+    assert.equal((await j.lockForResume("a")).ok,false);
+  } finally { await rm(dir,{recursive:true,force:true}); }
 });
