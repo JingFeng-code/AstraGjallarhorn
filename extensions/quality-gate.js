@@ -11,6 +11,18 @@ const isName=s=>typeof s==="string"&&/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,119}$/.test(s
 export function parseQualityPolicy(raw){
   if(raw===undefined||raw==="")return null;
   const p=JSON.parse(raw);
+  // v2 is a narrow, explicit SQLite recipe, not a general shell allowlist.
+  // No command or permission is discovered from untrusted project files.
+  if(p?.version===2){
+    const source=Array.isArray(p.writable)&&p.writable.length===1?p.writable[0]:null;
+    if(p.kind!=="sqlite-migration"||typeof source!=="string"||
+      source.length>240||!source.split("/").every(isName)||!source.endsWith(".sql")||
+      p.check!=="node "+path.posix.join(path.posix.dirname(source),"verify.mjs")||
+      typeof p.failureMarker!=="string"||!/^[a-zA-Z0-9_ -]{3,80}$/.test(p.failureMarker)){
+      throw Error("Invalid explicit SQLite quality contract");
+    }
+    return {check:p.check,failureMarker:p.failureMarker,writable:[source],kind:p.kind,verifier:p.check.slice(5)};
+  }
   if(p?.version!==1||typeof p.check!=="string"||!/^node --test [a-zA-Z0-9][a-zA-Z0-9._-]{0,100}\.m?js$/.test(p.check)||
     typeof p.failureMarker!=="string"||!/^[a-zA-Z0-9_]{3,80}$/.test(p.failureMarker)||
     !Array.isArray(p.writable)||p.writable.length!==1||!p.writable.every(isName)||
@@ -33,20 +45,25 @@ export async function allowedEdit(root,input,policy){
   const canonical=await realpath(root);
   const candidate=path.resolve(root,raw);
   const norm=v=>process.platform==="win32"?v.toLowerCase():v;
-  // Require an approved basename, then resolve the candidate's parent.
-  // Windows can express the same directory via a short-name path, a junction,
-  // or a long path; comparing the unresolved parent with canonical fails.
-  const approved=policy.writable.find(name=>norm(name)===norm(path.basename(candidate)));
-  if(!approved)return false;
-  const parent=await realpath(path.dirname(candidate));
-  if(parent!==canonical)return false;
-  const expected=path.join(canonical,approved);
-  const [st,expectedStat]=await Promise.all([lstat(candidate),lstat(expected)]);
-  if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||
-     !expectedStat.isFile()||expectedStat.isSymbolicLink()||expectedStat.nlink!==1)return false;
-  // Resolve both existing paths; require the same canonical file, not a
-  // case-folded match (Windows can have case-sensitive directories).
-  return (await realpath(candidate))===(await realpath(expected));
+  // Check the approved path itself from the trusted root; no nested directory
+  // symlink/junction is allowed to redefine the scope. Cwd aliases are allowed.
+  for(const approved of policy.writable){
+    const segments=approved.split("/");
+    if(!segments.every(isName)||norm(path.basename(candidate))!==norm(segments.at(-1)))continue;
+    let expectedParent=canonical;
+    for(const segment of segments.slice(0,-1)){
+      expectedParent=path.join(expectedParent,segment);
+      const st=await lstat(expectedParent);
+      if(!st.isDirectory()||st.isSymbolicLink()||await realpath(expectedParent)!==expectedParent)return false;
+    }
+    if(await realpath(path.dirname(candidate))!==expectedParent)continue;
+    const expected=path.join(expectedParent,segments.at(-1));
+    const [st,expectedStat]=await Promise.all([lstat(candidate),lstat(expected)]);
+    if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||
+       !expectedStat.isFile()||expectedStat.isSymbolicLink()||expectedStat.nlink!==1)return false;
+    return (await realpath(candidate))===(await realpath(expected));
+  }
+  return false;
 }
 export function registerQualityGate(pi,Type,policy,fingerprint=worktreeFingerprint,checkPath=allowedEdit){
   if(!policy)return;
@@ -84,6 +101,7 @@ export function registerQualityGate(pi,Type,policy,fingerprint=worktreeFingerpri
         if(!await checkPath(ctx.cwd,input,policy))return refuse("Write outside approved existing source: "+policy.writable.join(", "));
         if(!active.reproduced)return refuse("Run the original failing regression first: "+policy.check);
       }
+      if(kind==="check"&&policy.verifier&&!await checkPath(ctx.cwd,{path:policy.verifier},{writable:[policy.verifier]}))return refuse("Approved verifier is missing or aliased outside its declared location.");
       const before=await snap(ctx);
       if(!before)return refuse("Current worktree evidence is unavailable.");
       if(active.last&&active.last!==before){active.invalid=true;return refuse("Worktree changed outside the observed contract; stop and inspect.");}
@@ -105,7 +123,7 @@ export function registerQualityGate(pi,Type,policy,fingerprint=worktreeFingerpri
       if(p.kind==="check"){
         if(!active.edits){
           const text=(e.result?.content??[]).filter(c=>c.type==="text").map(c=>c.text).join("\n");
-          if(e.isError===true&&text.includes(policy.failureMarker)){active.reproduced=true;active.last=after;}
+          if(e.isError===true&&text.includes(policy.failureMarker)&&(!policy.verifier||text.includes("ERR_ASSERTION"))){active.reproduced=true;active.last=after;}
         }else{
           active.check=e.isError===false?after:null;
         }

@@ -45,10 +45,10 @@ Push-Location $repo
 try {
     $commit = (& git rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Cannot identify checkout.' }
-    $units = @('checkpoint','retry-limit','task-recovery','tool-profile','verification-evidence','diff-review','handoff','quality-gate','autonomous-evidence','original-fixture')
+    $units = @('checkpoint','retry-limit','task-recovery','tool-profile','verification-evidence','diff-review','handoff','quality-gate','autonomous-evidence','original-fixture','sql-contract')
     $unitPaths = @($units | ForEach-Object { "tests/$_.test.mjs" })
     Run-Check 'core-unit' 'node' (@('--test') + $unitPaths)
-    foreach ($test in @('mode-rpc','skill-discovery-rpc','retry-limit-rpc','natural-recovery-rpc','verification-evidence-rpc','quality-gate-rpc','checkpoint-rpc','command-guard-rpc','diff-review-rpc','handoff-rpc','task-recovery-rpc')) {
+    foreach ($test in @('mode-rpc','skill-discovery-rpc','retry-limit-rpc','natural-recovery-rpc','verification-evidence-rpc','quality-gate-rpc','sql-quality-gate-rpc','checkpoint-rpc','command-guard-rpc','diff-review-rpc','handoff-rpc','task-recovery-rpc')) {
         Run-Check $test 'node' @("tests/$test.mjs", $PiCli)
     }
     Run-Check 'sync-restore-dry-run-fixtures' 'pwsh' @('-NoProfile','-File','tests/sync.ps1')

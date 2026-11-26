@@ -61,3 +61,29 @@ test("real filesystem scope accepts a cwd directory alias but rejects a file ali
     assert.equal(await allowedEdit(alias,{path:"pricing.mjs"},policy),false);
   }finally{await rm(base,{recursive:true,force:true,maxRetries:3});}
 });
+
+test("SQLite contract is explicit, bounded and rejects shell chains/traversal",()=>{
+  const sql={version:2,kind:"sqlite-migration",check:"node examples/sql/verify.mjs",failureMarker:"title length constraint",writable:["examples/sql/001-create-notes.sql"]};
+  assert.equal(parseQualityPolicy(JSON.stringify(sql)).verifier,"examples/sql/verify.mjs");
+  for(const q of [{...sql,check:"node examples/sql/verify.mjs || true"},{...sql,writable:["../001.sql"]},{...sql,writable:["examples/sql/verify.mjs"]},{...sql,check:"node other/verify.mjs"},{...sql,kind:"anything"}])assert.throws(()=>parseQualityPolicy(JSON.stringify(q)),/Invalid/);
+});
+test("nested approved migration permits exact file only, not an outside same-name file or a junction in declared scope",async()=>{
+  const {mkdtemp,mkdir,writeFile,symlink,rm}=await import("node:fs/promises");
+  const {tmpdir}=await import("node:os");
+  const path=(await import("node:path")).default;
+  const base=await mkdtemp(path.join(tmpdir(),"astra-sql-scope-"));
+  try{
+    const root=path.join(base,"root"),outside=path.join(base,"outside");
+    await mkdir(path.join(root,"db"),{recursive:true});await mkdir(outside);
+    await writeFile(path.join(root,"db","migration.sql"),"SELECT 1;");
+    await writeFile(path.join(root,"db","verify.mjs"),"");
+    await writeFile(path.join(outside,"migration.sql"),"SELECT 2;");
+    const p={writable:["db/migration.sql"]};
+    assert.equal(await allowedEdit(root,{path:"db/migration.sql"},p),true);
+    assert.equal(await allowedEdit(root,{path:path.join(root,"db","migration.sql")},p),true);
+    assert.equal(await allowedEdit(root,{path:"db/verify.mjs"},p),false);
+    assert.equal(await allowedEdit(root,{path:path.join(outside,"migration.sql")},p),false);
+    await symlink(outside,path.join(root,"linked"),process.platform==="win32"?"junction":"dir");
+    assert.equal(await allowedEdit(root,{path:"linked/migration.sql"},{writable:["linked/migration.sql"]}),false);
+  }finally{await rm(base,{recursive:true,force:true,maxRetries:3});}
+});

@@ -4,7 +4,7 @@ export function isFixtureCheck(command) {
   if(typeof command!=="string"||/[\r\n]/.test(command))return false;
   return /^\s*node\s+--test(?:\s+(?:\.\/)?pricing\.test\.mjs|\s+"(?:\.\/)?pricing\.test\.mjs"|\s+'(?:\.\/)?pricing\.test\.mjs')?\s*$/.test(command);
 }
-export function inspectCalls(events) {
+export function inspectCalls(events, isCheck=isFixtureCheck) {
   const starts=new Map();
   const calls=[];
   for(const [index,e] of events.entries()){
@@ -16,7 +16,7 @@ export function inspectCalls(events) {
   }
   const edits=calls.filter(c=>c.name==="edit"&&c.outcome==="ok");
   const first=edits[0],last=edits.at(-1);
-  const check=c=>c.name==="bash"&&isFixtureCheck(c.args?.command);
+  const check=c=>c.name==="bash"&&isCheck(c.args?.command);
   const afterLast=c=>last&&c.startedAt!==null&&c.startedAt>last.endedAt;
   const modelReproduced=Boolean(first&&first.startedAt!==null&&calls.some(c=>check(c)&&c.outcome==="error"&&c.endedAt<first.startedAt));
   const modelVerified=Boolean(last&&calls.some(c=>check(c)&&c.outcome==="ok"&&afterLast(c)));
@@ -26,10 +26,10 @@ export function inspectCalls(events) {
 }
 // Shareable diagnostics use an allowlist, not arbitrary shell arguments or output.
 // For unrecognized commands, keep an explicit marker; exact local-only trace is separate.
-export function publicCalls(calls) {
+export function publicCalls(calls, isCheck=isFixtureCheck) {
   return calls.map(c=>({name:c.name,outcome:c.outcome,startedAt:c.startedAt,endedAt:c.endedAt,
-    ...(c.name==="bash"?{command:isFixtureCheck(c.args?.command)?c.args.command:
+    ...(c.name==="bash"?{command:isCheck(c.args?.command)?c.args.command:
       /^\s*git\s+diff(?:\s+--\s+(?:\.\/)?pricing\.mjs)?\s*$/.test(c.args?.command??"")?c.args.command:"[unrecognized command; inspect local trace]"}:{}),
     ...(c.name==="read"?{correctSkill:/[\\/]correct[\\/]SKILL\.md$/i.test(c.args?.path??"")}:{}),
-    ...(c.name==="bash"?{recognizedCheck:isFixtureCheck(c.args?.command)}:{})}));
+    ...(c.name==="bash"?{recognizedCheck:isCheck(c.args?.command)}:{})}));
 }
