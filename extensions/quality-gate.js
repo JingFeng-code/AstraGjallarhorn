@@ -31,20 +31,22 @@ export async function allowedEdit(root,input,policy){
   const raw=input?.path;
   if(typeof raw!=="string"||!raw||raw.includes("\0"))return false;
   const canonical=await realpath(root);
+  const candidate=path.resolve(root,raw);
   const norm=v=>process.platform==="win32"?v.toLowerCase():v;
-  // Compare lexical paths within the same root namespace first. The cwd can
-  // contain a Windows short-name alias or a junction. Resolve the trusted
-  // root, not an arbitrary user-supplied parent directory.
-  const original=path.resolve(root);
-  const candidate=path.resolve(original,raw);
-  const approved=policy.writable.find(name=>
-    norm(candidate)===norm(path.join(original,name))||
-    norm(candidate)===norm(path.join(canonical,name)));
+  // Require an approved basename, then resolve the candidate's parent.
+  // Windows can express the same directory via a short-name path, a junction,
+  // or a long path; comparing the unresolved parent with canonical fails.
+  const approved=policy.writable.find(name=>norm(name)===norm(path.basename(candidate)));
   if(!approved)return false;
+  const parent=await realpath(path.dirname(candidate));
+  if(parent!==canonical)return false;
   const expected=path.join(canonical,approved);
-  const st=await lstat(candidate);
-  if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1)return false;
-  return norm(await realpath(candidate))===norm(expected);
+  const [st,expectedStat]=await Promise.all([lstat(candidate),lstat(expected)]);
+  if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||
+     !expectedStat.isFile()||expectedStat.isSymbolicLink()||expectedStat.nlink!==1)return false;
+  // Resolve both existing paths; require the same canonical file, not a
+  // case-folded match (Windows can have case-sensitive directories).
+  return (await realpath(candidate))===(await realpath(expected));
 }
 export function registerQualityGate(pi,Type,policy,fingerprint=worktreeFingerprint,checkPath=allowedEdit){
   if(!policy)return;

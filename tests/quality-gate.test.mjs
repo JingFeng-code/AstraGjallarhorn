@@ -35,7 +35,7 @@ test("no gate pass from failed unrelated example or incomplete evidence",()=>{
 });
 
 test("real filesystem scope accepts a cwd directory alias but rejects a file alias or hardlink",async()=>{
-  const {mkdtemp,mkdir,writeFile,symlink,link,rm}=await import("node:fs/promises");
+  const {mkdtemp,mkdir,writeFile,symlink,link,rm,realpath}=await import("node:fs/promises");
   const {tmpdir}=await import("node:os");
   const path=(await import("node:path")).default;
   const base=await mkdtemp(path.join(tmpdir(),"astra-gate-path-"));
@@ -46,8 +46,15 @@ test("real filesystem scope accepts a cwd directory alias but rejects a file ali
     await writeFile(path.join(root,"pricing.test.mjs"),"test");
     await symlink(root,alias,process.platform==="win32"?"junction":"dir");
     const policy=parseQualityPolicy(JSON.stringify(p));
-    assert.equal(await allowedEdit(alias,{path:"pricing.mjs"},policy),true);
-    assert.equal(await allowedEdit(alias,{path:path.join(root,"pricing.mjs")},policy),true);
+    assert.equal(await allowedEdit(alias,{path:"pricing.mjs"},policy),true,"relative path via trusted cwd alias");
+    assert.equal(await allowedEdit(alias,{path:path.join(root,"pricing.mjs")},policy),true,"absolute path via original root spelling");
+    assert.equal(await allowedEdit(alias,{path:path.join(await realpath(root),"pricing.mjs")},policy),true,"absolute canonical path");
+    const outside=path.join(base,"outside");
+    await mkdir(outside);
+    await writeFile(path.join(outside,"pricing.mjs"),"different file");
+    const outsideAlias=path.join(base,"outside-alias");
+    await symlink(outside,outsideAlias,process.platform==="win32"?"junction":"dir");
+    assert.equal(await allowedEdit(alias,{path:path.join(outsideAlias,"pricing.mjs")},policy),false,"same basename in different directory");
     assert.equal(await allowedEdit(alias,{path:"pricing.test.mjs"},policy),false);
     assert.equal(await allowedEdit(alias,{path:"../real/pricing.test.mjs"},policy),false);
     await link(path.join(root,"pricing.mjs"),path.join(root,"other.mjs"));
