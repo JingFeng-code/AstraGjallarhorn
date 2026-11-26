@@ -12,14 +12,17 @@ if (-not $IsWindows) { throw 'This acceptance entry currently targets Windows + 
 if (-not $PiCli) {
     $PiCli = Join-Path $HOME (".pi/agent/install/releases/" + $pin.pi.version + "/node_modules/" + $pin.pi.package + "/dist/cli.js")
 }
+if (-not (Test-Path -LiteralPath $PiCli -PathType Leaf)) {
+    throw "Pinned Pi CLI not found: $PiCli. Use -PiCli with an existing matching CLI. No installation or upgrade is performed."
+}
 $PiCli = (Resolve-Path -LiteralPath $PiCli -ErrorAction Stop).Path
 foreach ($cmd in @('node','git','pi','pwsh')) { Get-Command $cmd -ErrorAction Stop | Out-Null }
 $nodeVersion = (& node --version).Trim()
 if ($LASTEXITCODE -ne 0 -or $nodeVersion -notmatch '^v24\.') { throw 'Use existing Node.js 24.x; no automatic upgrade.' }
 $piVersion = (& node $PiCli --version).Trim()
-if ($LASTEXITCODE -ne 0 -or $piVersion -notmatch ('(^|\s)' + [regex]::Escape([string]$pin.pi.version) + '($|\s)')) { throw 'Pinned Pi CLI version mismatch; no automatic upgrade.' }
+if ($LASTEXITCODE -ne 0 -or $piVersion -notmatch ('(^|\s)' + [regex]::Escape([string]$pin.pi.version) + '($|\s)')) { throw "Pinned Pi CLI version mismatch: detected '$piVersion', expected '$($pin.pi.version)'. No automatic upgrade." }
 $installedPi = (& pi --version).Trim()
-if ($LASTEXITCODE -ne 0 -or $installedPi -notmatch ('(^|\s)' + [regex]::Escape([string]$pin.pi.version) + '($|\s)')) { throw 'The existing pi command must match the pinned version for sync tests.' }
+if ($LASTEXITCODE -ne 0 -or $installedPi -notmatch ('(^|\s)' + [regex]::Escape([string]$pin.pi.version) + '($|\s)')) { throw "The existing pi command reports '$installedPi', but sync tests require '$($pin.pi.version)'. Do not downgrade or alter PATH solely to pass this check." }
 if (-not $SkipModel) {
     if (!$Model -or $Model -match 'cloud|remote') { throw 'Select an already downloaded local model, not cloud.' }
     $tags = Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 5
@@ -60,7 +63,7 @@ try {
 } finally {
     Pop-Location
     [pscustomobject]@{
-        commit=$commit; node=$nodeVersion; pi=$piVersion; model= $(if ($SkipModel) {$null} else {$Model});
+        commit=$commit; node=$nodeVersion; pi=$piVersion; launcherPi=$installedPi; model= $(if ($SkipModel) {$null} else {$Model});
         status= $(if ($failed) {'FAIL_OR_BLOCKED'} elseif ($SkipModel) {'CORE_PASS_MODEL_SKIPPED'} else {'CORE_AND_ONE_MODEL_CASE_PASS'});
         checks=@($results.ToArray()); limitations=@('Not a release gate for all stacks/models','Roslyn and dependency restore not run here','Formal Pi/TTY/Herdr and second-machine acceptance pending','Model test is not an OS sandbox')
     } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidence 'summary.json') -Encoding utf8
