@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 // script: array of steps. step = { text } | { tools: [{name, args}] } | function(requestBody, n) => step
-export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false, real, formal = false, workDir }) {
+export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false, real, formal = false, workDir, isolatedHome = false }) {
   const cwd = baseDir ?? await mkdtemp(path.join(tmpdir(), "astra-rpc-"));
   const agent = formal ? path.join((await import("node:os")).homedir(), ".pi", "agent") : path.join(cwd, "agent");
   const work = workDir ?? path.join(cwd, "work");
@@ -49,9 +49,18 @@ export async function startPi({ cli, script, extensions, extraFiles = {}, env = 
       baseUrl: `http://127.0.0.1:${server.address().port}/v1`, api: "openai-completions", apiKey: "fixture-only", models: [{ id: "fixture" }],
     } },
   }));
+  let childEnv={...process.env};
+  if(isolatedHome){
+    if(formal)throw Error("isolatedHome is incompatible with formal Pi");
+    const allowed=new Set(["path","systemroot","windir","comspec","pathext","programfiles","programfiles(x86)","programw6432","os","lang","lc_all","shell","systemdrive"]);
+    childEnv=Object.fromEntries(Object.entries(process.env).filter(([k])=>allowed.has(k.toLowerCase())));
+    const home=path.join(cwd,"home");
+    await mkdir(home,{recursive:true});
+    Object.assign(childEnv,{HOME:home,USERPROFILE:home,APPDATA:home,LOCALAPPDATA:home,XDG_CONFIG_HOME:home,TEMP:cwd,TMP:cwd,TMPDIR:cwd,GIT_CONFIG_NOSYSTEM:"1",GIT_CONFIG_GLOBAL:process.platform==="win32"?"NUL":"/dev/null",GIT_CONFIG_COUNT:"0"});
+  }
   const child = spawn(process.execPath, [
     path.resolve(cli), ...(formal ? ["--no-session", "--no-mcp", "--no-context-files"] : ["--offline", "--no-mcp", "--no-skills", "--no-context-files"]), "--mode", "rpc", "--provider", real ? "ollama" : "fixture", "--model", real ? real.model : "fixture", ...args,
-  ], { cwd: work, env: formal ? { ...process.env, ...env } : { ...process.env, PI_CODING_AGENT_DIR: agent, ...env } });
+  ], { cwd: work, env: formal ? { ...childEnv, ...env } : { ...childEnv, PI_CODING_AGENT_DIR: agent, ...env } });
   child.stderr.on("data", (d) => process.stderr.write(d));
   const rl = createInterface({ input: child.stdout });
   const events = [];

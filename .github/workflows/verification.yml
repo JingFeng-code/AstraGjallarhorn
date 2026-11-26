@@ -25,6 +25,12 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $cli = Join-Path $lsp 'node_modules/typescript-language-server/lib/cli.mjs'
           "ASTRA_TSLS=$cli" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - name: Check local acceptance entry syntax
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD "scripts/accept-v03.ps1"), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
       - run: node --test tests/*.test.mjs
       - name: Pi RPC and sync regression
         shell: pwsh

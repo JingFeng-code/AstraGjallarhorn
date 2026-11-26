@@ -23,9 +23,10 @@ const readme = "# Order pricing\nThe discount parameter is a percentage (0 to 10
 const git = (cwd,...args)=>execFileSync("git",args,{cwd,encoding:"utf8",timeout:30000});
 const verify = cwd=>spawnSync(process.execPath,["--test","pricing.test.mjs"],{cwd,encoding:"utf8",timeout:30000});
 const pi = await startPi({
-  cli, real:{model:installed.name}, script:[],
-  extensions:["command-guard.js","checkpoint.js","retry-limit.js","diff-review.js"],
-  args:["--append-system-prompt",rules,...skills,"--tools","read,edit,bash,review_diff"],
+  cli, real:{model:installed.name}, script:[], isolatedHome:true,
+  env:{ASTRA_GUARD_MODE:"strict"},
+  extensions:["command-guard.js","checkpoint.js","retry-limit.js","diff-review.js","verification-evidence.js"],
+  args:["--append-system-prompt",rules,...skills,"--tools","read,edit,bash,review_diff,verification_status"],
   cwdSetup:async work=>{
     await writeFile(path.join(work,"pricing.mjs"),source);
     await writeFile(path.join(work,"pricing.test.mjs"),tests);
@@ -47,13 +48,14 @@ try {
   const calls = pi.toolEnds().map(e=>({name:e.toolName,failed:e.isError===true,args:starts.get(e.toolCallId)?.args}));
   const isCheck = c => c.name==="bash" && /^\s*node\s+--test(?:\s+pricing\.test\.mjs)?\s*$/.test(c.args?.command??"");
   const edit = calls.findIndex(c=>c.name==="edit"&&!c.failed);
+  const lastEdit = calls.findLastIndex(c=>c.name==="edit"&&!c.failed);
   const sawFail = edit>=0 && calls.slice(0,edit).some(c=>isCheck(c)&&c.failed);
-  const sawPass = edit>=0 && calls.slice(edit+1).some(c=>isCheck(c)&&!c.failed);
+  const sawPass = lastEdit>=0 && calls.slice(lastEdit+1).some(c=>isCheck(c)&&!c.failed);
   const status = git(pi.work,"status","--porcelain").trim();
   const unchangedTests = await readFile(path.join(pi.work,"pricing.test.mjs"),"utf8")===tests;
   const unchangedDocs = await readFile(path.join(pi.work,"README.md"),"utf8")===readme;
   const unchangedHead = git(pi.work,"rev-parse","HEAD").trim()===head;
-  const review = calls.some(c=>c.name==="review_diff"&&!c.failed);
+  const review = lastEdit>=0 && calls.slice(lastEdit+1).some(c=>c.name==="review_diff"&&!c.failed);
   const result = {model:installed.name,independentBefore:before.status,independentAfter:after.status,modelReproduced:sawFail,modelVerified:sawPass,reviewToolObserved:review,unchangedTests,unchangedDocs,unchangedHead,status,tools:calls.map(c=>({name:c.name,failed:c.failed}))};
   console.log(JSON.stringify(result,null,2));
   assert.equal(after.status,0,"Independent regression must pass");
@@ -61,6 +63,6 @@ try {
   assert.equal(status,"M pricing.mjs","Only the implementation file may change");
   assert.ok(sawFail && sawPass,"Model must reproduce and rerun the documented check itself");
   // A diff tool call is evidence of access, not proof of review quality.
-  assert.ok(review || calls.some(c=>c.name==="bash"&&!c.failed&&/^\s*git\s+diff(?:\s|$)/.test(c.args?.command??"")),"Model must inspect changes");
+  assert.ok(review || (lastEdit>=0 && calls.slice(lastEdit+1).some(c=>c.name==="bash"&&!c.failed&&/^\s*git\s+diff(?:\s|$)/.test(c.args?.command??""))),"Model must inspect changes");
   console.log("PASS: natural-language task, independent regression and observed verification; this does not certify other projects or models");
 } finally { await pi.close(); }
