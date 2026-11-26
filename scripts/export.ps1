@@ -92,34 +92,40 @@ function Get-GeneratedPackagesJson {
     $packages = @()
     $unknown = @()
     foreach ($spec in $specs) {
-        $text = [string]$spec
+        $text = Get-PackageSource $spec
         if (-not $text.StartsWith('npm:')) {
             $unknown += $text
             continue
         }
         $name = ConvertTo-PackageName $text
         $version = Get-InstalledPackageVersion $PiHome $name
-        if ([string]::IsNullOrWhiteSpace($version)) { $version = 'unknown' }
+        if (@($packages | Where-Object { $_.name -ceq $name }).Count -gt 0) {
+            throw "settings.json 重複宣告套件：$name"
+        }
+        if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9a-z.+-]+)?$') {
+            throw "無法確認套件的安裝版本：$name"
+        }
+        $pin = "npm:${name}@${version}"
+        if ($text -cne "npm:$name" -and $text -cne $pin) {
+            throw "套件來源與安裝版本不一致：$name"
+        }
         $packages += ([ordered]@{
             name    = $name
             version = $version
-            pin     = ("npm:{0}@{1}" -f $name, $version)
+            pin     = $pin
             source  = $text
         })
     }
 
     $piVersion = Get-PiVersion
-    $compatible = 'unknown'
-    if ($null -ne $piVersion -and $piVersion -match '^(\d+)\.(\d+)\.') {
-        $compatible = ('{0}.{1}.x' -f $Matches[1], $Matches[2])
-    }
+    if ($piVersion -notmatch '^\d+\.\d+\.\d+$') { throw '無法確認 Pi 版本。' }
 
     $result = [ordered]@{
         schemaVersion = 1
         pi            = [ordered]@{
             package    = '@earendil-works/pi-coding-agent'
             version    = $piVersion
-            compatible = $compatible
+            compatible = $piVersion
         }
         packages      = @($packages)
         excluded      = @(
@@ -295,6 +301,19 @@ try {
     }
 
     # --- 6. 寫入 -------------------------------------------------------------
+    $gitRoot = & git -C $repo rev-parse --show-toplevel 2>$null
+    if ($LASTEXITCODE -eq 0 -and $gitRoot) {
+        $targets = @($plan | Where-Object { $_.Status -ne '=' })
+        if ($Prune) { $targets += $stale }
+        foreach ($item in $targets) {
+            $status = & git -C $repo --literal-pathspecs status --porcelain=v1 --untracked-files=all -- $item.RepoRel
+            if ($LASTEXITCODE -ne 0) { throw '無法檢查 Git 工作樹。' }
+            if ($status) {
+                Write-FailLine ("匯出目標有未提交的變更：{0}" -f $item.RepoRel)
+                exit 3
+            }
+        }
+    }
     Write-Section '寫入儲存庫'
     foreach ($item in $plan) {
         if ($item.Status -eq '=') { continue }
