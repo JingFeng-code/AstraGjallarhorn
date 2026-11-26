@@ -6,6 +6,8 @@ $agent = Join-Path $piHome 'agent'
 $state = Join-Path $root 'appdata'
 $settings = Join-Path $agent 'settings.json'
 $originalAppData = $env:LOCALAPPDATA
+$originalPath = $env:PATH
+$originalFixture = $env:ASTRA_TEST_GH_VISIBILITY
 
 function Invoke-Check([string]$Name, [int]$Expected, [hashtable]$Arguments) {
     & (Join-Path $repo "scripts/$Name.ps1") -PiHome $piHome @Arguments | Out-Host
@@ -37,6 +39,8 @@ try {
     $pinnedBytes = [IO.File]::ReadAllBytes($settings)
     $pinnedHash = (Get-FileHash $settings).Hash
     Invoke-Check 'export' 0 @{DryRun=$true; NoDiff=$true}
+    Invoke-Check 'export' 1 @{Apply=$true; NoDiff=$true}
+    Invoke-Check 'export' 1 @{Apply=$true; DryRun=$true; NoDiff=$true}
     $exportRepo = Join-Path $root 'export-repo'
     New-Item -ItemType Directory -Path $exportRepo | Out-Null
     foreach ($name in @('manifests', 'extensions', 'modes', 'agent')) {
@@ -47,8 +51,65 @@ try {
     $exportTarget = Join-Path $exportRepo 'extensions/mode-switch.ts'
     Add-Content -LiteralPath $exportTarget -Value '// Uncommitted export target'
     $exportHash = (Get-FileHash $exportTarget).Hash
-    Invoke-Check 'export' 3 @{RepoPath=$exportRepo; NoDiff=$true}
+    # Offline fake gh; only this disposable fixture PATH changes.
+    $fixtureBin = Join-Path $root 'fixture-bin'
+    New-Item -ItemType Directory -Path $fixtureBin | Out-Null
+    @'
+@echo off
+node "%~dp0gh-fixture.cjs" %*
+exit /b %errorlevel%
+'@ | Set-Content -LiteralPath (Join-Path $fixtureBin 'gh.cmd') -Encoding ascii
+    @'
+const args = process.argv.slice(2);
+if (JSON.stringify(args) !== JSON.stringify(["api","--hostname","github.com","--method","GET","repos/astra-test/private-fixture"])) process.exit(90);
+const mode = process.env.ASTRA_TEST_GH_VISIBILITY;
+if (mode === "error") process.exit(1);
+if (mode === "invalid") { console.log("not json"); process.exit(0); }
+console.log(JSON.stringify({full_name: mode === "mismatch" ? "other/repo" : "astra-test/private-fixture", private: mode !== "public" && mode !== "missing", visibility: mode === "mismatch" ? "private" : mode === "missing" ? undefined : mode}));
+'@ | Set-Content -LiteralPath (Join-Path $fixtureBin 'gh-fixture.cjs') -Encoding ascii
+    $env:PATH = $fixtureBin + [IO.Path]::PathSeparator + $originalPath
+    $env:ASTRA_TEST_GH_VISIBILITY = 'private'
+    if ((Get-Command gh -CommandType Application | Select-Object -First 1).Source -ne (Join-Path $fixtureBin 'gh.cmd')) { throw 'Offline gh fixture did not take precedence' }
+    Invoke-Check 'export' 0 @{RepoPath=$exportRepo; NoDiff=$true}
+    if ((Get-FileHash $exportTarget).Hash -ne $exportHash) { throw 'Default export overwrote target' }
+    Invoke-Check 'export' 1 @{RepoPath=$exportRepo; Apply=$true; NoDiff=$true}
+    & git -C $exportRepo remote add origin https://github.com/JingFeng-code/AstraGjallarhorn.git
+    if ($LASTEXITCODE) { throw 'Could not configure public fixture' }
+    Invoke-Check 'export' 1 @{RepoPath=$exportRepo; Apply=$true; NoDiff=$true}
+    & git -C $exportRepo remote set-url origin https://github.com/astra-test/private-fixture.git
+    if ($LASTEXITCODE) { throw 'Could not configure private fixture' }
+    foreach ($visibility in @('public','internal','missing','mismatch','invalid','error')) {
+        $env:ASTRA_TEST_GH_VISIBILITY = $visibility
+        Invoke-Check 'export' 1 @{RepoPath=$exportRepo; Apply=$true; NoDiff=$true}
+        if ((Get-FileHash $exportTarget).Hash -ne $exportHash) { throw "Denied export wrote target: $visibility" }
+    }
+    $env:ASTRA_TEST_GH_VISIBILITY = 'private'
+    & git -C $exportRepo remote set-url origin https://example.invalid/astra-test/private-fixture.git
+    if ($LASTEXITCODE) { throw 'Could not configure unsupported host fixture' }
+    Invoke-Check 'export' 1 @{RepoPath=$exportRepo; Apply=$true; NoDiff=$true}
+    & git -C $exportRepo remote set-url origin https://github.com/astra-test/private-fixture.git
+    if ($LASTEXITCODE) { throw 'Could not restore private fixture' }
+    & git -C $exportRepo remote set-url --push origin https://github.com/astra-test/other.git
+    if ($LASTEXITCODE) { throw 'Could not configure mismatched push fixture' }
+    Invoke-Check 'export' 1 @{RepoPath=$exportRepo; Apply=$true; NoDiff=$true}
+    & git -C $exportRepo remote set-url --push origin git@github.com:astra-test/private-fixture.git
+    if ($LASTEXITCODE) { throw 'Could not configure matching push fixture' }
+    & git -C $exportRepo remote add second https://github.com/astra-test/other.git
+    if ($LASTEXITCODE) { throw 'Could not configure additional remote fixture' }
+    Invoke-Check 'export' 1 @{RepoPath=$exportRepo; Apply=$true; NoDiff=$true}
+    & git -C $exportRepo remote remove second
+    if ($LASTEXITCODE) { throw 'Could not remove fixture remote' }
+    Invoke-Check 'export' 3 @{RepoPath=$exportRepo; Apply=$true; NoDiff=$true}
     if ((Get-FileHash $exportTarget).Hash -ne $exportHash) { throw 'Export overwrote uncommitted work' }
+    # Commit only synthetic disposable files, then exercise the verified write path.
+    & git -C $exportRepo add --all
+    if ($LASTEXITCODE) { throw 'Could not stage disposable fixture' }
+    & git -C $exportRepo -c user.name='Synthetic Fixture' -c user.email='fixture@example.invalid' -c commit.gpgsign=false -c "core.hooksPath=$fixtureBin" commit --quiet -m 'Synthetic export baseline'
+    if ($LASTEXITCODE) { throw 'Could not commit disposable fixture' }
+    Invoke-Check 'export' 0 @{RepoPath=$exportRepo; Apply=$true; NoDiff=$true}
+    if ((Get-FileHash $exportTarget).Hash -eq $exportHash) { throw 'Authorized private fixture did not update target' }
+    $env:PATH = $originalPath
+    $env:ASTRA_TEST_GH_VISIBILITY = $originalFixture
     Invoke-Check 'verify' 0 @{}
     Set-Content -LiteralPath $settings -Value $initial
     Invoke-Check 'verify' 1 @{}
@@ -91,9 +152,11 @@ try {
     $duplicateHash = (Get-FileHash $settings).Hash
     Invoke-Check 'apply' 1 @{StrictVersion=$true; Apply=$true}
     if ((Get-FileHash $settings).Hash -ne $duplicateHash) { throw 'Duplicate declarations were modified' }
-    Write-Output 'PASS: apply dry run, version pin merge, export dry run, verify, apply and restore conflict protection, backup, restore, duplicate protection'
+    Write-Output 'PASS: apply dry run, version pin merge, export dry run, fail-closed private destination, authorized export, verify, apply and restore conflict protection, backup, restore, duplicate protection'
 } finally {
     $env:LOCALAPPDATA = $originalAppData
+    $env:PATH = $originalPath
+    $env:ASTRA_TEST_GH_VISIBILITY = $originalFixture
     if (Test-Path -LiteralPath $root) {
         $resolved = (Resolve-Path -LiteralPath $root).Path
         $expectedParent = [IO.Path]::TrimEndingDirectorySeparator((Resolve-Path -LiteralPath ([IO.Path]::GetTempPath())).Path)

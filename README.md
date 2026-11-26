@@ -2,7 +2,7 @@
 
 [English](README.en.md) | 繁體中文
 
-Pi Coding Agent 的受控設定同步與工程驗證工具組。此分支是依 PR #5、#3、#4 建立的本機 v0.3 整合候選；不是正式 release，也未推送或合併至 main。
+Pi Coding Agent 的受控設定同步與工程驗證工具組。v0.3 為開發預覽；正式發布版本以 GitHub Releases 為準。
 
 ## 功能
 
@@ -25,6 +25,8 @@ Windows、Git、PowerShell 7，以及 manifest 固定的 Pi 1.6.1。Node.js 24 �
 檢查檔案清單、版本、備份及衝突後，才自行加上 -Apply 寫入。完整操作方式見[操作指南](docs/operations-manual.md)。
 
 ## 公開與私人資料邊界
+
+匯出預設為 Dry Run；寫入必須使用 -Apply 並明確指定 -RepoPath，且由已認證的 GitHub CLI（gh）確認私人 GitHub repository。公開、internal、未知或不支援的目的地一律拒絕。預覽私人設定時請使用 -NoDiff 避免差異出現在日誌。
 
 公開 Repository 僅供通用程式碼、測試與文件使用。個人 Pi 設定、Provider 憑證、Session、備份、原始驗收輸出、公司資料及私人工作紀錄應留在本機或獨立私人 Repository。不要 mirror push 私人 refs。
 

@@ -2,7 +2,7 @@
 
 [繁體中文](README.md) | English
 
-Controlled configuration synchronization and engineering verification tooling for Pi Coding Agent. This branch is a local v0.3 integration candidate assembled in the order PR #5, #3, #4. It has not been pushed, merged into main, or released.
+Controlled configuration synchronization and engineering verification tooling for Pi Coding Agent. v0.3 is a development preview; see GitHub Releases for published versions.
 
 ## Features
 
@@ -25,6 +25,8 @@ From the repository root, preview the apply plan:
 Review the file plan, version, backups, and conflicts before adding -Apply to write changes. See the [operations manual](docs/operations-manual.md).
 
 ## Public and private data boundary
+
+Export defaults to a dry run. To write, pass -Apply and explicit -RepoPath; authenticated GitHub CLI (gh) must confirm a private GitHub repository. Public, internal, unknown and unsupported destinations are refused. Use -NoDiff when previewing private settings to avoid diffs in logs.
 
 The public repository is for generic code, tests, and documentation. Keep personal Pi settings, provider credentials, sessions, backups, raw acceptance output, company data, and private work records local or in a separate private repository. Do not mirror-push private refs.
 

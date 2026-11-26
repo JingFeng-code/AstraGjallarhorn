@@ -1,6 +1,6 @@
 # 操作指南 / Operations Manual
 
-本手冊適用於本機 v0.3 整合候選。候選尚未正式發布；指令均從 Repository 根目錄執行。
+本手冊適用於 v0.3 開發預覽；正式發布版本以 GitHub Releases 為準。指令均從 Repository 根目錄執行。
 
 ## 版本與需求
 
@@ -31,7 +31,12 @@
 
 ## 私人設定同步
 
-個人匯出只應寫到你控制的私人 Repository。先以 scripts/export.ps1 -DryRun 檢視白名單、遠端與檔案差異；逐檔審核後再匯出。匯出腳本不會替你提交或推送。不要使用 git add -A、mirror push，或把憑證、Session、備份、公司資料及私人日誌送到公開上游。
+個人匯出只應寫到你控制的私人 Repository。先準備包含相容 manifest 的獨立私人 GitHub 工作樹。預設為預覽，不寫入目標工作樹、不查詢 GitHub；加 -NoDiff 避免私人差異出現在日誌。暫存 manifest 會於結束時清除。
+
+    pwsh -NoProfile -File scripts/export.ps1 -RepoPath <private-repo> -NoDiff
+    pwsh -NoProfile -File scripts/export.ps1 -RepoPath <private-repo> -Apply -NoDiff
+
+實際寫入需 git、已認證 gh、明確 -Apply 與工作樹根目錄 -RepoPath。唯一 origin 的有效 fetch/push URL 必須同指向 GitHub.com 的同一私人 repository，API 必須確認 private、visibility 與名稱一致；寫入前再次查核。公開上游、public/internal、無 remote、多 remote、不同 push URL、非 GitHub.com、無法認證或查詢失敗均拒絕；無離線覆寫選項。支援 HTTPS（不含憑證）與常見 GitHub SSH 格式。提交前仍須審查檔案及遠端，私人狀態可能日後變更。匯出腳本不會替你提交或推送。不要使用 git add -A、mirror push，或把憑證、Session、備份、公司資料及私人日誌送到公開上游。
 
 Provider 名稱清單不含認證資料。憑證與個人設定留在本機；若需指定私人位置，使用你自己的環境變數或相對路徑，不要把個人路徑寫入公開文件或版本控制。
 
@@ -73,7 +78,7 @@ Full-stack fixture 使用暫存 Vue、ASP.NET Core API 與 SQLite 合成資料�
 
 ## English
 
-This manual applies to the local v0.3 integration candidate, which is not an official release. Run commands from the repository root.
+This manual applies to the v0.3 development preview; see GitHub Releases for published versions. Run commands from the repository root.
 
 ### Version and prerequisites
 
@@ -104,7 +109,12 @@ Exit code 0 may still include WARN or MANUAL items. It does not mean all interac
 
 ### Private configuration sync
 
-Export personal configuration only to a private repository you control. Start with scripts/export.ps1 -DryRun and inspect the allowlist, remote, and file diff. Review every file before export. The export script does not commit or push for you. Do not use git add -A or mirror-push, and never send credentials, sessions, backups, company data, or private logs to the public upstream.
+Export personal configuration only to a separate private GitHub working tree you control, with compatible manifests. A dry run is the default: it does not change the destination working tree or query GitHub. Use -NoDiff to avoid private diffs in logs; temporary manifests are cleaned up on exit.
+
+    pwsh -NoProfile -File scripts/export.ps1 -RepoPath <private-repo> -NoDiff
+    pwsh -NoProfile -File scripts/export.ps1 -RepoPath <private-repo> -Apply -NoDiff
+
+Writing requires git, authenticated gh, explicit -Apply and the working tree root as -RepoPath. The sole origin must have one effective fetch and push URL for the same GitHub.com repository. The API must confirm private, visibility and matching full name; this is checked again before writing. Public upstream, public/internal, absent or multiple remotes, differing push destinations, non-GitHub.com URLs, authentication and lookup failures are refused; no offline override. Common HTTPS (no embedded credentials) and GitHub SSH forms are supported. Review files and destination again before committing: visibility can change later. The export script does not commit or push for you. Do not use git add -A or mirror-push, and never send credentials, sessions, backups, company data, or private logs to the public upstream.
 
 Provider names do not include authentication. Keep credentials and personal settings local. If a private location is needed, use your own environment variables or relative paths; do not place personal paths in public documentation or version control.
 

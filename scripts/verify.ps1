@@ -117,7 +117,7 @@ try {
     Write-Section '1. Pi 版本相容性'
     $packagesPath = Join-Path $repo 'manifests/packages.json'
     if (-not (Test-Path -LiteralPath $packagesPath -PathType Leaf)) {
-        throw '儲存庫缺少 manifests/packages.json，請先執行 export.ps1。'
+        throw '儲存庫缺少 manifests/packages.json，請先確認版本控制中的 manifest；私人設定匯出請依操作指南指定已查核的私人目的地。'
     }
     $packagesManifest = Read-JsonFile $packagesPath
     $piInfo = Get-Prop $packagesManifest 'pi'

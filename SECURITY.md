@@ -16,7 +16,7 @@ Provide the affected commit/version, a minimal synthetic reproduction, impact, e
 - Repository scripts, build tools, dependencies, Git filters, and candidate code may execute arbitrary code as the current user. Review trusted revisions and use a disposable isolated workspace.
 - Checkpoints, journals, handoffs, backups and raw tool traces may include confidential source or prompts. Keep them local/private; never mirror local Git refs to a public remote.
 - Redaction and credential patterns can miss secrets. Never rely on a clean regex scan as proof of safety.
-- Provider credentials and personal Pi settings must stay out of Git. Never upload a company's repositories, artifacts or logs without permission.
+- Provider credentials must stay out of Git; personal settings must stay out of public Git. Private export defaults to preview; writes require explicit -Apply and -RepoPath and a verified private GitHub.com destination. Unknown, public, internal and unsupported destinations are refused. This point-in-time check does not protect against later visibility changes or manually committing elsewhere. Never upload a company's repositories, artifacts or logs without permission.
 - Automatic handoff is opt-in. A no-extra-cost declaration does not verify provider billing. No automatic provider changes or deployments should occur.
 - Public CI must use read-only permissions, no credential-bearing fork workflows, approved standard hosted runners, and reviewed workflows/dependencies. Never run untrusted external PR code with repository secrets or on a personal/self-hosted machine.
 
