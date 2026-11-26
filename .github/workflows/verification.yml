@@ -39,6 +39,8 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           node tests/retry-limit-rpc.mjs $cli
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/skill-discovery-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           foreach ($t in 'command-guard-rpc', 'checkpoint-rpc', 'handoff-rpc', 'task-recovery-rpc', 'diff-review-rpc', 'lsp-rpc') {
             node "tests/$t.mjs" $cli
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
