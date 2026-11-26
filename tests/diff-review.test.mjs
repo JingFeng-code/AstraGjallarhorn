@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { collectDiff, fingerprint, scopeReport } from "../extensions/diff-review.js";
+import { collectDiff, fingerprint, scopeReport, boundedText } from "../extensions/diff-review.js";
 
 const git = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8" });
 
@@ -40,4 +40,11 @@ test("scope report recognises tests and docs", () => {
   const r = scopeReport({ staged: ["src/a.ts", "tests/a.test.ts"], unstaged: ["README.md"], untracked: [] });
   assert.deepEqual(r.counts, { source: 1, tests: 1, docs: 1, other: 0 });
   assert.ok(!r.flags.some((f) => /GAP/.test(f)));
+});
+
+test("large diff text has an explicit bounded output and retains a truncation marker",()=>{
+  const text=boundedText("x".repeat(100000));
+  assert.ok(text.length<=30000);
+  assert.match(text,/truncated/);
+  assert.equal(boundedText("small"),"small");
 });

@@ -31,3 +31,11 @@ test("engineering profiles preserve available LSP and review tools; cloud still 
   await invoke("restore",ctx);
   assert.deepEqual(active,initial);
 });
+
+test("optional profiles retain available read-only evidence and preview tools but not recovery",async()=>{
+  const initial=["read","edit","bash","verification_status","checkpoint_preview","resume_interrupted_task"];
+  let active=[...initial],invoke;
+  register({registerCommand:(_n,{handler})=>invoke=handler,getActiveTools:()=>[...active],setActiveTools:t=>active=t});
+  await invoke("review",{ui:{notify(){}}});
+  assert.deepEqual(active,["read","verification_status","checkpoint_preview"]);
+});

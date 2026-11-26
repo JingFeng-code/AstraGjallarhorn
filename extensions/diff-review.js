@@ -6,7 +6,12 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
 
-const MAX_DIFF = 60_000;
+const MAX_DIFF = 12_000;
+const MAX_RESPONSE = 30_000;
+export function boundedText(text, limit=MAX_RESPONSE) {
+  const suffix="\n[truncated; use smaller diff scope or read the relevant files directly]";
+  return text.length<=limit?text:text.slice(0,limit-suffix.length)+suffix;
+}
 const TEST_PATH = /(^|[\\/])(tests?|__tests__|spec|e2e)([\\/]|$)|\.(test|spec)\.[cm]?[jt]sx?$|\.tests?\.|tests?\.cs$|test_.*\.py$|.*_test\.(go|py)$/i;
 const DOC_PATH = /\.(md|txt|rst)$|^docs?[\\/]/i;
 const SOURCE_PATH = /\.([cm]?[jt]sx?|vue|cs|py|go|rs|java|sql|ps1|sh|rb)$/i;
@@ -61,7 +66,7 @@ export async function collectDiff(root, scope = "all") {
   const section = async (title, args) => {
     let text = await git(root, [...args, "--no-ext-diff", "--no-textconv"]);
     const truncated = text.length > MAX_DIFF;
-    if (truncated) text = `${text.slice(0, MAX_DIFF)}\n[truncated at ${MAX_DIFF} characters; read the named files directly]`;
+    if (truncated) text = boundedText(text, MAX_DIFF);
     return `## ${title}\n${text.trim() || "(empty)"}`;
   };
   const parts = [`# Review scope\n${JSON.stringify(report.counts)}\n${report.flags.map((f) => `- ${f}`).join("\n") || "- no scope flags"}\nFiles: ${Object.entries(report.files).map(([f, v]) => `${f} [${v.join("+")}]`).join(", ") || "(none)"}`];
@@ -69,7 +74,7 @@ export async function collectDiff(root, scope = "all") {
   if (scope === "unstaged" || scope === "all") parts.push(await section("Unstaged diff (git diff)", ["diff"]));
   if (scope === "stat") parts.push(await section("Stat", ["diff", "HEAD", "--stat"]));
   if (scope === "all" && untracked.length) parts.push(`## Untracked files\n${untracked.join("\n")}`);
-  return { text: parts.join("\n\n"), report };
+  return { text: boundedText(parts.join("\n\n")), report };
 }
 
 export default async function (pi) {
@@ -94,7 +99,7 @@ export default async function (pi) {
       const unchanged = before === after;
       return {
         content: [{ type: "text", text: `${text}\n\n(work tree fingerprint ${unchanged ? "unchanged" : "CHANGED DURING REVIEW"}: ${after.slice(0, 12)})` }],
-        details: { fingerprint: after, unchanged, flags: report.flags },
+        details: { fingerprint: after, unchanged, flags: report.flags.slice(0, 10).map(f=>boundedText(f,1000)), flagsTruncated: report.flags.length>10 || report.flags.some(f=>f.length>1000) },
         isError: !unchanged,
       };
     },

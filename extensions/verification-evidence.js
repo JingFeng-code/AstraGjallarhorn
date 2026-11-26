@@ -23,26 +23,28 @@ export function recognizeCheck(command) {
   const found=patterns.find(([,re])=>re.test(key));
   return found?{kind:found[0],key}:null;
 }
-function git(cwd,args){
+function git(cwd,args,timeout=5000){
   return new Promise((resolve,reject)=>execFile("git",["--no-pager",...args],{
-    cwd,encoding:"buffer",timeout:5000,maxBuffer:8*1024*1024,windowsHide:true,
+    cwd,encoding:"buffer",timeout,maxBuffer:8*1024*1024,windowsHide:true,
     env:{...process.env,GIT_OPTIONAL_LOCKS:"0"}
   },(err,out)=>err?reject(err):resolve(out)));
 }
 export async function worktreeFingerprint(cwd){
   try{
-    const root=(await git(cwd,["rev-parse","--show-toplevel"])).toString().trim();
+    const deadline=Date.now()+8000;
+    const run=(cwd,args)=>{const remaining=deadline-Date.now();if(remaining<=0)throw Error("Fingerprint budget exceeded");return git(cwd,args,Math.min(5000,remaining));};
+    const root=(await run(cwd,["rev-parse","--show-toplevel"])).toString().trim();
     const h=createHash("sha256");
     const add=b=>{h.update(String(b.length)+":");h.update(b);};
     const statusArgs=["status","--porcelain=v2","-z","--untracked-files=all","--ignore-submodules=none"];
-    const initial=await git(root,statusArgs);
+    const initial=await run(root,statusArgs);
     add(initial);
     for(const args of [
       ["rev-parse","--verify","HEAD"],
       ["diff","--cached","--binary","--no-ext-diff","--no-textconv"],
       ["diff","--binary","--no-ext-diff","--no-textconv"]
-    ])add(await git(root,args));
-    const untracked=(await git(root,["ls-files","-z","--others","--exclude-standard"])).toString().split("\0").filter(Boolean);
+    ])add(await run(root,args));
+    const untracked=(await run(root,["ls-files","-z","--others","--exclude-standard"])).toString().split("\0").filter(Boolean);
     if(untracked.length>32)return null;
     const realRoot=await realpath(root);
     for(const name of untracked){
@@ -50,9 +52,9 @@ export async function worktreeFingerprint(cwd){
       if(!st.isFile()||st.size>8*1024*1024||/(?:^|\/)(?:\.env(?:\..*)?|auth\.json|credentials\.json|[^/]*\.(?:pem|key|pfx))$/i.test(name))return null;
       const actual=await realpath(file),rel=path.relative(realRoot,actual);
       if(rel===".."||rel.startsWith(".."+path.sep)||path.isAbsolute(rel))return null;
-      add(Buffer.from(name));add(await git(root,["hash-object","--no-filters","--",name]));
+      add(Buffer.from(name));add(await run(root,["hash-object","--no-filters","--",name]));
     }
-    if(!initial.equals(await git(root,statusArgs)))return null;
+    if(!initial.equals(await run(root,statusArgs)))return null;
     return h.digest("hex");
   }catch{return null;}
 }
@@ -68,22 +70,30 @@ export function summarizeEvidence(initial,final,records,incomplete=false){
   else if(changed)status="CHANGES_UNVERIFIED";
   return {status,changed,checks};
 }
+const readonlyTools=new Set(["read","grep","find","ls","review_diff","checkpoint_preview","verification_status","lsp_diagnostics","lsp_definition","lsp_references"]);
+const labels={NOT_OBSERVED:"未觀察",CHANGES_UNVERIFIED:"修改未驗證",CHECK_ERROR_OBSERVED:"檢查失敗",STALE_OR_UNKNOWN:"證據過期或不確定",CHECKS_OBSERVED_OK:"觀察到檢查成功",UNKNOWN:"證據未知"};
 export function registerEvidence(pi,Type,fingerprint=worktreeFingerprint){
   let turn;
   const snap=async ctx=>fingerprint(ctx.cwd).catch(()=>null);
+  const setStatus=(ctx,text)=>ctx.ui?.setStatus?.("astra-verification",text);
   const summary=async ctx=>{
-    if(!turn)return {status:"NOT_OBSERVED",changed:null,checks:[]};
-    const active=turn,final=await snap(ctx);
-    return summarizeEvidence(active.initial,final,active.records,active.pending.size>0||active.incomplete);
+    if(!turn?.baseline)return {status:"NOT_OBSERVED",changed:null,checks:[]};
+    const active=turn,initial=await active.baseline,final=await snap(ctx);
+    return summarizeEvidence(initial,final,active.records,active.pending.size>0||active.incomplete);
   };
-  pi.on("session_start",()=>{turn=undefined;});
-  pi.on("agent_start",async(_e,ctx)=>{
-    const active={initial:null,records:new Map(),pending:new Map(),incomplete:false};turn=active;
-    active.initial=await snap(ctx);
+  pi.on("session_start",(_e,ctx)=>{turn=undefined;setStatus(ctx,undefined);});
+  pi.on("agent_start",(_e,ctx)=>{
+    turn={baseline:null,records:new Map(),pending:new Map(),incomplete:false};
+    setStatus(ctx,undefined);
   });
   pi.on("tool_execution_start",async(e,ctx)=>{
     const active=turn,check=e.toolName==="bash"?recognizeCheck(e.args?.command):null;
-    if(!active||!check)return;
+    if(!active||readonlyTools.has(e.toolName))return;
+    // Lazy baseline: text-only and known read-only turns never invoke Git.
+    active.baseline??=snap(ctx);
+    await active.baseline;
+    setStatus(ctx,"驗證：待核對");
+    if(!check)return;
     if(active.pending.size>=32||(!active.records.has(check.key)&&active.records.size>=32)){active.incomplete=true;return;}
     if([...active.pending.values()].some(p=>p.key===check.key))active.incomplete=true;
     const record={...check,id:e.toolCallId,before:null};active.pending.set(e.toolCallId,record);
@@ -95,10 +105,13 @@ export function registerEvidence(pi,Type,fingerprint=worktreeFingerprint){
     record.after=await snap(ctx);
     record.result=e.isError===true?"error":e.isError===false?"ok":"unknown";
     active.pending.delete(e.toolCallId);active.records.set(record.key,record);
+    setStatus(ctx,record.result==="error"?"驗證：檢查失敗":"驗證：待核對");
   });
   pi.on("agent_end",async(_e,ctx)=>{
     const s=await summary(ctx);
-    if(!s.changed&&!s.checks.length)return;
+    if(!turn?.baseline)return;
+    setStatus(ctx,"驗證："+labels[s.status]);
+    if(!s.changed&&!s.checks.length&&s.status!=="UNKNOWN")return;
     ctx.ui?.notify?.("驗證證據："+s.status+"（"+s.checks.length+" 項已辨識檢查；非完整驗收）",s.status==="CHECKS_OBSERVED_OK"?"info":"warning");
   });
   pi.registerTool({

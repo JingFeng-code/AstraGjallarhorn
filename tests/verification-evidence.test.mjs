@@ -51,3 +51,20 @@ test("native observation sees error, later successful rerun, and stale changes",
   await hooks.get("agent_end")({},ctx);assert.equal(notices.at(-1)[1],"warning");
   await hooks.get("agent_start")({},ctx);assert.equal(await status(),"NOT_OBSERVED");
 });
+
+test("text-only and read-only turns perform zero fingerprints; mutating calls start observation",async()=>{
+  const hooks=new Map();let tool,n=0;const status=[];
+  const ctx={cwd:".",ui:{notify(){},setStatus:(k,v)=>status.push([k,v])}};
+  registerEvidence({on:(k,f)=>hooks.set(k,f),registerTool:t=>tool=t},{Object:x=>x},async()=>{n++;return "a";});
+  await hooks.get("agent_start")({},ctx);
+  await hooks.get("tool_execution_start")({toolName:"read",toolCallId:"r",args:{}},ctx);
+  await tool.execute("",{},null,null,ctx);
+  await hooks.get("agent_end")({},ctx);
+  assert.equal(n,0);
+  await hooks.get("agent_start")({},ctx);
+  await hooks.get("tool_execution_start")({toolName:"edit",toolCallId:"e",args:{}},ctx);
+  assert.equal(n,1);
+  await hooks.get("agent_end")({},ctx);
+  assert.equal(n,2);
+  assert.ok(status.some(([k,v])=>k==="astra-verification"&&v==="驗證：待核對"));
+});
