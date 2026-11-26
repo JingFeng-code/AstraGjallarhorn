@@ -4,7 +4,7 @@ import { mkdtemp,writeFile,rm } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { recognizeCheck,summarizeEvidence,worktreeFingerprint,registerEvidence } from "../extensions/verification-evidence.js";
+import { recognizeCheck,summarizeEvidence,worktreeFingerprint,registerEvidence,deliveryEvidence } from "../extensions/verification-evidence.js";
 test("recognizes bounded standalone checks, not arbitrary commands or shell chains",()=>{
   assert.equal(recognizeCheck("npm run lint").kind,"lint");
   assert.equal(recognizeCheck("dotnet test Notes.Tests.csproj --no-build").kind,"test");
@@ -67,4 +67,29 @@ test("text-only and read-only turns perform zero fingerprints; mutating calls st
   await hooks.get("agent_end")({},ctx);
   assert.equal(n,2);
   assert.ok(status.some(([k,v])=>k==="astra-verification"&&v==="驗證：待核對"));
+});
+
+test("delivery status requires separate current review and checks after changes",()=>{
+  const good=summarizeEvidence("a","b",check("ok"));
+  assert.equal(deliveryEvidence(good,null,"b").delivery,"FINAL_REVIEW_NOT_OBSERVED");
+  assert.equal(deliveryEvidence(good,{before:"a",after:"a",ok:true},"b").delivery,"FINAL_REVIEW_NOT_OBSERVED");
+  assert.equal(deliveryEvidence(good,{before:"b",after:"b",ok:true},"b").delivery,"CHECK_AND_REVIEW_OBSERVED");
+  assert.equal(deliveryEvidence(summarizeEvidence("a","b",new Map()),{before:"b",after:"b",ok:true},"b").delivery,"CHECKS_MISSING_OR_STALE");
+});
+test("tool-result feedback is bounded and conditional, preserving original result content",async()=>{
+  const hooks=new Map();
+  const ctx={cwd:".",ui:{notify(){}}};
+  registerEvidence({on:(k,f)=>hooks.set(k,f),registerTool(){}},{Object:x=>x},async()=>"a");
+  await hooks.get("agent_start")({},ctx);
+  const hook=hooks.get("tool_result");
+  const content=[{type:"text",text:"original"}];
+  assert.equal(hook({toolName:"read",input:{path:"README.md"},content,isError:false}),undefined);
+  const read=hook({toolName:"read",input:{path:"pricing.test.mjs"},content,isError:false});
+  assert.equal(read.content[0],content[0]);assert.match(read.content[1].text,/existing regression/);
+  assert.equal(hook({toolName:"read",input:{path:"pricing.test.mjs"},content,isError:false}),undefined);
+  assert.equal(hook({toolName:"edit",input:{path:"pricing.mjs"},content,isError:true}),undefined);
+  assert.match(hook({toolName:"edit",input:{path:"pricing.mjs"},content,isError:false}).content[1].text,/final edit/);
+  assert.equal(hook({toolName:"edit",input:{path:"pricing.mjs"},content,isError:false}),undefined);
+  assert.match(hook({toolName:"bash",input:{command:"node --test"},content,isError:false}).content[1].text,/final diff/);
+  assert.equal(hook({toolName:"bash",input:{command:"node --test"},content,isError:false}),undefined);
 });
