@@ -51,6 +51,8 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           node tests/verification-evidence-rpc.mjs $cli
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/quality-gate-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           foreach ($t in 'command-guard-rpc', 'checkpoint-rpc', 'handoff-rpc', 'task-recovery-rpc', 'diff-review-rpc', 'lsp-rpc') {
             node "tests/$t.mjs" $cli
             if ($LASTEXITCODE) { exit $LASTEXITCODE }

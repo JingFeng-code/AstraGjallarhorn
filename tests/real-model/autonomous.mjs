@@ -10,7 +10,9 @@ import { inspectCalls, publicCalls } from "../lib/autonomous-evidence.mjs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
-const [cli, model] = process.argv.slice(2);
+const [cli, model, option] = process.argv.slice(2);
+const gated=option==="--gate";
+if(option!==undefined&&!gated)throw Error("Unknown acceptance option");
 if (!cli || !model || /cloud|remote/i.test(model)) {
   throw Error("Usage: node tests/real-model/autonomous.mjs <pi cli.js> <installed local model>");
 }
@@ -28,9 +30,9 @@ const git = (cwd,...args)=>execFileSync("git",args,{cwd,encoding:"utf8",timeout:
 const verify = cwd=>verifyOriginalFixture(cwd,tests);
 const pi = await startPi({
   cli, real:{model:installed.name}, script:[], isolatedHome:true,
-  env:{ASTRA_GUARD_MODE:"strict"},
-  extensions:["command-guard.js","checkpoint.js","retry-limit.js","diff-review.js","verification-evidence.js"],
-  args:["--append-system-prompt",rules,...skills,"--tools","read,edit,bash,review_diff,verification_status"],
+  env:{ASTRA_GUARD_MODE:"strict",...(gated?{ASTRA_QUALITY_GATE:JSON.stringify({version:1,check:"node --test pricing.test.mjs",failureMarker:"ERR_ASSERTION",writable:["pricing.mjs"]})}:{})},
+  extensions:["command-guard.js","checkpoint.js","retry-limit.js","diff-review.js","verification-evidence.js",...(gated?["quality-gate.js"]:[])],
+  args:["--append-system-prompt",rules,...skills,"--tools","read,edit,bash,review_diff,verification_status"+(gated?",quality_gate_status":"")],
   cwdSetup:async work=>{
     await writeFile(path.join(work,"pricing.mjs"),source);
     await writeFile(path.join(work,"pricing.test.mjs"),tests);
@@ -70,7 +72,8 @@ try {
   const unchangedTests = await readFile(path.join(pi.work,"pricing.test.mjs"),"utf8")===tests;
   const unchangedDocs = await readFile(path.join(pi.work,"README.md"),"utf8")===readme;
   const unchangedHead = git(pi.work,"rev-parse","HEAD").trim()===head;
-  const result = {model:installed.name,independentBefore:before.status,independentAfter:after.status,modelReproduced:sawFail,modelVerified:sawPass,reviewToolObserved:review,gitReviewObserved,unchangedTests,unchangedDocs,unchangedHead,status,tools:publicCalls(calls)};
+  const gateObserved=gated?pi.notices().some(n=>n.includes("Astra Quality Gate: CHECK_AND_REVIEW_OBSERVED")):null;
+  const result = {acceptance:gated?"contract-constrained":"unassisted",gateObserved,model:installed.name,independentBefore:before.status,independentAfter:after.status,modelReproduced:sawFail,modelVerified:sawPass,reviewToolObserved:review,gitReviewObserved,unchangedTests,unchangedDocs,unchangedHead,status,tools:publicCalls(calls)};
   console.log(JSON.stringify(result,null,2));
   assert.equal(after.status,0,"Independent regression with original untouched test bytes must pass");
   assert.ok(unchangedTests && unchangedDocs && unchangedHead,"Approved test file, documentation and HEAD must remain unchanged (not a judgment of whether changed assertions were weakened)");
@@ -78,5 +81,6 @@ try {
   assert.ok(sawFail && sawPass,"Model must reproduce and rerun the documented check itself (before="+sawFail+", after="+sawPass+")");
   // A diff tool call is evidence of access, not proof of review quality.
   assert.ok(review || gitReviewObserved,"Model must inspect changes after the final edit");
-  console.log("PASS: natural-language task, independent regression and observed verification; this does not certify other projects or models");
+  if(gated)assert.equal(gateObserved,true,"Explicit gate must independently observe current check and review evidence");
+  console.log("PASS: "+(gated?"contract-constrained":"unassisted")+" natural-language task, independent regression and observed verification; this does not certify other projects or models");
 } finally { await pi.close(); }

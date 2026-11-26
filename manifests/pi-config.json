@@ -163,6 +163,12 @@
       "source": "agent/extensions/verification-evidence.js",
       "target": "extensions/verification-evidence.js",
       "note": "觀察原生驗證工具結果及 Git 狀態，不保證完整驗收"
+    },
+    {
+      "type": "file",
+      "source": "agent/extensions/quality-gate.js",
+      "target": "extensions/quality-gate.js",
+      "note": "明確授權的缺陷修復品質關卡試點；預設不啟用"
     }
   ],
   "excludeNames": [
