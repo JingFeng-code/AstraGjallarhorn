@@ -28,3 +28,10 @@ test("public diagnostics do not disclose unrecognized shell arguments",()=>{
   assert.equal(publicCalls(c.calls)[0].recognizedCheck,false);
   assert.doesNotMatch(JSON.stringify(publicCalls(c.calls)),/private-value/);
 });
+
+test("event indices preserve start ordering even when other calls complete before the edit",()=>{
+  const a=inspectCalls([start("1","bash",{command:"node --test"}),start("2","edit"),end("1","bash",true),end("2","edit",false),...call("3","bash",{command:"node --test"}),...call("4","review_diff")]);
+  assert.equal(a.modelReproduced,false);
+  assert.ok(a.modelVerified&&a.reviewToolObserved);
+  assert.equal(a.calls[1].startedAt,1);
+});

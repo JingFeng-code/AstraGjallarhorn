@@ -7,12 +7,12 @@ export function isFixtureCheck(command) {
 export function inspectCalls(events) {
   const starts=new Map();
   const calls=[];
-  for(const e of events){
-    if(e.type==="tool_execution_start")starts.set(e.toolCallId,{args:e.args,index:calls.length});
+  for(const [index,e] of events.entries()){
+    if(e.type==="tool_execution_start")starts.set(e.toolCallId,{args:e.args,index});
     if(e.type!=="tool_execution_end")continue;
     const start=starts.get(e.toolCallId);
     calls.push({name:e.toolName,outcome:e.isError===true?"error":e.isError===false?"ok":"unknown",
-      args:start?.args,startedAt:start?.index??null,endedAt:calls.length});
+      args:start?.args,startedAt:start?.index??null,endedAt:index});
   }
   const edits=calls.filter(c=>c.name==="edit"&&c.outcome==="ok");
   const first=edits[0],last=edits.at(-1);
