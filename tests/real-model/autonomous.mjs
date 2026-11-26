@@ -5,6 +5,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { startPi } from "../lib/pi-rpc.mjs";
+import { inspectCalls, publicCalls } from "../lib/autonomous-evidence.mjs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
 
 const [cli, model] = process.argv.slice(2);
 if (!cli || !model || /cloud|remote/i.test(model)) {
@@ -44,25 +47,31 @@ try {
   try { await pi.prompt("業主說訂單折扣金額計算錯誤，幫我查原因並修好。"); }
   finally { clearTimeout(timer); }
   const after = verify(pi.work);
-  const starts = new Map(pi.events.filter(e=>e.type==="tool_execution_start").map(e=>[e.toolCallId,e]));
-  const calls = pi.toolEnds().map(e=>({name:e.toolName,failed:e.isError===true,args:starts.get(e.toolCallId)?.args}));
-  const isCheck = c => c.name==="bash" && /^\s*node\s+--test(?:\s+pricing\.test\.mjs)?\s*$/.test(c.args?.command??"");
-  const edit = calls.findIndex(c=>c.name==="edit"&&!c.failed);
-  const lastEdit = calls.findLastIndex(c=>c.name==="edit"&&!c.failed);
-  const sawFail = edit>=0 && calls.slice(0,edit).some(c=>isCheck(c)&&c.failed);
-  const sawPass = lastEdit>=0 && calls.slice(lastEdit+1).some(c=>isCheck(c)&&!c.failed);
+  const observed=inspectCalls(pi.events);
+  const {calls,modelReproduced:sawFail,modelVerified:sawPass,reviewToolObserved:review,gitReviewObserved}=observed;
+  // Local-only diagnostic: shell commands and bounded tool result text, not prompts,
+  // provider credentials or read-file payloads. Do not upload unreviewed.
+  const traceDir=await mkdtemp(path.join(tmpdir(),"astra-v03-model-trace-"));
+  const tracePath=path.join(traceDir,"shell-trace.json");
+  const starts=new Map(pi.events.filter(e=>e.type==="tool_execution_start").map(e=>[e.toolCallId,e]));
+  const trace=pi.toolEnds().filter(e=>e.toolName==="bash").map(e=>({
+    id:e.toolCallId,command:String(starts.get(e.toolCallId)?.args?.command??"").slice(0,2000),
+    isError:e.isError??null,
+    output:(e.result?.content??[]).filter(c=>c.type==="text").map(c=>c.text).join("\n").slice(0,4000)
+  }));
+  await writeFile(tracePath,JSON.stringify(trace,null,2));
+  console.log("Local-only shell trace (inspect before sharing): "+tracePath);
   const status = git(pi.work,"status","--porcelain").trim();
   const unchangedTests = await readFile(path.join(pi.work,"pricing.test.mjs"),"utf8")===tests;
   const unchangedDocs = await readFile(path.join(pi.work,"README.md"),"utf8")===readme;
   const unchangedHead = git(pi.work,"rev-parse","HEAD").trim()===head;
-  const review = lastEdit>=0 && calls.slice(lastEdit+1).some(c=>c.name==="review_diff"&&!c.failed);
-  const result = {model:installed.name,independentBefore:before.status,independentAfter:after.status,modelReproduced:sawFail,modelVerified:sawPass,reviewToolObserved:review,unchangedTests,unchangedDocs,unchangedHead,status,tools:calls.map(c=>({name:c.name,failed:c.failed}))};
+  const result = {model:installed.name,independentBefore:before.status,independentAfter:after.status,modelReproduced:sawFail,modelVerified:sawPass,reviewToolObserved:review,gitReviewObserved,unchangedTests,unchangedDocs,unchangedHead,status,tools:publicCalls(calls)};
   console.log(JSON.stringify(result,null,2));
   assert.equal(after.status,0,"Independent regression must pass");
   assert.ok(unchangedTests && unchangedDocs && unchangedHead,"No test weakening, documentation change, or commit");
   assert.equal(status,"M pricing.mjs","Only the implementation file may change");
-  assert.ok(sawFail && sawPass,"Model must reproduce and rerun the documented check itself");
+  assert.ok(sawFail && sawPass,"Model must reproduce and rerun the documented check itself (before="+sawFail+", after="+sawPass+")");
   // A diff tool call is evidence of access, not proof of review quality.
-  assert.ok(review || (lastEdit>=0 && calls.slice(lastEdit+1).some(c=>c.name==="bash"&&!c.failed&&/^\s*git\s+diff(?:\s|$)/.test(c.args?.command??""))),"Model must inspect changes");
+  assert.ok(review || gitReviewObserved,"Model must inspect changes after the final edit");
   console.log("PASS: natural-language task, independent regression and observed verification; this does not certify other projects or models");
 } finally { await pi.close(); }
