@@ -1,0 +1,128 @@
+name: Verification
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sql:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.18.0'
+      - run: ./scripts/verify-project.ps1 -Suite sql
+      - name: Pinned TypeScript language server
+        shell: pwsh
+        run: |
+          $lsp = Join-Path $env:RUNNER_TEMP 'astra-lsp'
+          npm install --prefix $lsp --ignore-scripts --save-exact --no-audit --no-fund typescript@5.9.3 typescript-language-server@6.1.0
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $cli = Join-Path $lsp 'node_modules/typescript-language-server/lib/cli.mjs'
+          "ASTRA_TSLS=$cli" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+      - name: Check local acceptance entry syntax
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD "scripts/accept-v03.ps1"), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
+      - run: node --test tests/*.test.mjs
+      - name: Pi RPC and sync regression
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'astra-pi'
+          $pin = Get-Content manifests/packages.json -Raw | ConvertFrom-Json
+          npm install --prefix $runtime --ignore-scripts --no-audit --no-fund "$($pin.pi.package)@$($pin.pi.version)"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:PATH = "$(Join-Path $runtime 'node_modules/.bin');$env:PATH"
+          $cli = Join-Path $runtime "node_modules/$($pin.pi.package)/dist/cli.js"
+          node tests/mode-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/retry-limit-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/skill-discovery-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/natural-recovery-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/verification-evidence-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/quality-gate-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/sql-quality-gate-rpc.mjs $cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          foreach ($t in 'command-guard-rpc', 'checkpoint-rpc', 'handoff-rpc', 'task-recovery-rpc', 'diff-review-rpc', 'lsp-rpc') {
+            node "tests/$t.mjs" $cli
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          pwsh -NoProfile -File tests/sync.ps1
+          exit $LASTEXITCODE
+  dotnet:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '10.0.401'
+      - run: dotnet restore examples/dotnet/Notes.Tests.csproj --locked-mode
+      - run: ./scripts/verify-project.ps1 -Suite dotnet
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.18.0'
+      - name: .NET explicit contract Pi RPC (offline cached packages)
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'astra-pi-dotnet'
+          $pin = Get-Content manifests/packages.json -Raw | ConvertFrom-Json
+          npm install --prefix $runtime --ignore-scripts --no-audit --no-fund "$($pin.pi.package)@$($pin.pi.version)"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $cli = Join-Path $runtime "node_modules/$($pin.pi.package)/dist/cli.js"
+          node tests/dotnet-quality-gate-rpc.mjs $cli
+          exit $LASTEXITCODE
+  vue:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.18.0'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: examples/vue
+      - run: ./scripts/verify-project.ps1 -Suite vue
+      - name: Vue explicit contract Pi RPC (offline npm cache and Edge)
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'astra-pi-vue'
+          $pin = Get-Content manifests/packages.json -Raw | ConvertFrom-Json
+          npm install --prefix $runtime --ignore-scripts --no-audit --no-fund "$($pin.pi.package)@$($pin.pi.version)"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:npm_config_cache = (npm config get cache).Trim()
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $cli = Join-Path $runtime "node_modules/$($pin.pi.package)/dist/cli.js"
+          node tests/vue-quality-gate-rpc.mjs $cli
+          exit $LASTEXITCODE
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '10.0.401'
+      - name: Full-stack browser HTTP SQLite fixture fault injection
+        shell: pwsh
+        run: |
+          $env:npm_config_cache = (npm config get cache).Trim()
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/fullstack-fixture.mjs
+          exit $LASTEXITCODE

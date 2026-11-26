@@ -1,0 +1,661 @@
+{
+  "schemaVersion": 1,
+  "status": "PRIVATE_REVIEW_CANDIDATE",
+  "sourceCommit": "a58a6dc7dfe29331bac50ab0e229e11f154eb79b",
+  "copy": [
+    {
+      "path": ".gitattributes",
+      "sha": "1b5cc951ce6e97af6a2f1ca97220d13075f11b37",
+      "mode": "100644"
+    },
+    {
+      "path": ".gitignore",
+      "sha": "9801a2038c56e9d5b1071fdb510a9153341c0955",
+      "mode": "100644"
+    },
+    {
+      "path": "agent/prompts/commit.md",
+      "sha": "44ece82ee64bbf6631c60ef466e4a44441ff767c",
+      "mode": "100644"
+    },
+    {
+      "path": "agent/prompts/review.md",
+      "sha": "a2977422b108cc3d08801ad97150ae942a1a8e43",
+      "mode": "100644"
+    },
+    {
+      "path": "agent/prompts/verify.md",
+      "sha": "c1edc14fd8e5b3b9e1965ec6317047871d7e133c",
+      "mode": "100644"
+    },
+    {
+      "path": "agent/skills/architect/LICENSE",
+      "sha": "6b5400237fdf6545be0b8fae370d6f2fcff8fb25",
+      "mode": "100644"
+    },
+    {
+      "path": "agent/skills/architect/SKILL.md",
+      "sha": "fb4f7c35d11910ccf7b7286f3aca1a198b6abd58",
+      "mode": "100644"
+    },
+    {
+      "path": "agent/skills/correct/LICENSE",
+      "sha": "6b5400237fdf6545be0b8fae370d6f2fcff8fb25",
+      "mode": "100644"
+    },
+    {
+      "path": "agent/skills/correct/SKILL.md",
+      "sha": "89652645739743cefcc3e1bd6fe8dc194e7348a9",
+      "mode": "100644"
+    },
+    {
+      "path": "agent/skills/create-verification-skill/LICENSE",
+      "sha": "6b5400237fdf6545be0b8fae370d6f2fcff8fb25",
+      "mode": "100644"
+    },
+    {
+      "path": "agent/skills/create-verification-skill/SKILL.md",
+      "sha": "6f24c4babcedfc614fb4d73b02a997c16090702e",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/dotnet/.editorconfig",
+      "sha": "5f97a03cb74b10784d650797a41fbbcb780e617c",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/dotnet/.gitignore",
+      "sha": "62d1e7994ccac58cc52c4cb7cedcb9d37a9148cf",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/dotnet/Domain/Note.cs",
+      "sha": "59418b06bb9195cabef0a31879d620ed27d13f05",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/dotnet/NoteTests.cs",
+      "sha": "a0042f41c76ec85dce8faf3d144d749abee61bf6",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/dotnet/Notes.Tests.csproj",
+      "sha": "0df17d1235d64cc5cd85757c5ef18ea9294a60fd",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/dotnet/README.md",
+      "sha": "fdfbf3a628472c1a0dbedc27b71527cb9b6a45ad",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/dotnet/Storage/NoteStore.cs",
+      "sha": "86a65dc31ee3f2c1bae905ae5ea0727f539da108",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/dotnet/packages.lock.json",
+      "sha": "ed79b7e3eb5cf0e1bfe32e41c45d471349be07df",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/fullstack/Api/NoteRepository.cs",
+      "sha": "070dfe47c67a4e0837b61125fcbb11d2b0710de0",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/fullstack/Api/NoteService.cs",
+      "sha": "8f62834fa79bb0cbfbc11f174c315bbd87ae1080",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/fullstack/Api/Notes.Api.csproj",
+      "sha": "f7750c912fea5f592867637865f95e17400c4f15",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/fullstack/Api/Program.cs",
+      "sha": "f3ce3384eb21040739bbcc89caa1f5206eb64d55",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/fullstack/Api/db.mjs",
+      "sha": "bc54ad33fa08896df4f54e72fa83e427344d2ba9",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/fullstack/Api/schema.sql",
+      "sha": "8c1769c4b4c2355020e13d0a707200afcbc1b7fc",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/fullstack/README.md",
+      "sha": "c3123ad33edc93638b58ae5608408b22633549df",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/fullstack/web/NoteEditor.vue",
+      "sha": "5dc04e62d4aff0a20f91ebd93cfefd235988e40d",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/sql/001-create-notes.sql",
+      "sha": "9f4e1c0c4fc75499f7bfb3e1a50c4e00383f6042",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/sql/README.md",
+      "sha": "6920d3cbdccaeb9cf3a2c3fb2f7221f5ccf25952",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/sql/verify.mjs",
+      "sha": "19e6eb4d1eefc51c3898dedf2c087fee84f4ee84",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/sql/verify.test.mjs",
+      "sha": "a2fd745e6437f0d281021a3cf895ab433a4151db",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/.gitignore",
+      "sha": "f0a232bfffba9aee3214a9c12f50e6ccf4cf0c6c",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/README.md",
+      "sha": "e7546c092ada231c4db90bc8f2cc79685837db84",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/e2e/title.spec.mjs",
+      "sha": "bb0378e044d2b00cd556256265f0d284e772b0d2",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/eslint.config.mjs",
+      "sha": "4d88cb6f48b86cd3f51e7645dd97a3276e401b7a",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/index.html",
+      "sha": "3625d8b56e105b87a2ac1f92703e1086d9ad48f5",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/package-lock.json",
+      "sha": "53c8877c6fa324b43e72546c95852d9e27502596",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/package.json",
+      "sha": "e7b70fc896ec268188eda015de200b647bbf83e9",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/playwright.config.mjs",
+      "sha": "e1f37855756673b1a64ddd3ff60750db2a21d6b9",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/src/NoteEditor.vue",
+      "sha": "934da9c9856c51facedceb22d49dad808314626d",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/src/main.ts",
+      "sha": "c8bf7d71499f81f2083bbe9ca44b6ff79bb53b8e",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/src/title.test.ts",
+      "sha": "c8201829c0542492180431dd8b58145dbb7246ba",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/src/title.ts",
+      "sha": "925958ba4b202309d2b1612d9b764e79723df528",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/tsconfig.json",
+      "sha": "bb85072e52a1072dbf4052d08dc620dac6da1a30",
+      "mode": "100644"
+    },
+    {
+      "path": "examples/vue/vite.config.mjs",
+      "sha": "f5f345cb0552967ba05f45b57492dd19855f4a9c",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/checkpoint.js",
+      "sha": "efa3ce1ccad3813e6a76bd3f36a197fa689020bb",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/command-guard.js",
+      "sha": "a10b649f0da641e914d81c95844a52bad83aa20e",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/diff-review.js",
+      "sha": "054755e61069cd63dba45284d40d49b0b4b3a39e",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/handoff.js",
+      "sha": "37412143daf2c1786759c6d92fb1167e1833e891",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/hashline.js",
+      "sha": "2c9e2937b5ff91437f9abd4a82e90b67d389282d",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/lsp.js",
+      "sha": "80c0cb1eb8361b24ce16725fcd934b18d6740ff7",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/mode-switch.ts",
+      "sha": "66e4c4ce96c33482d8eca68cd03a0e6bec3a54c6",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/quality-gate.js",
+      "sha": "7ba56016bf2f79a0a5407c038e7fd0336af7ab40",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/retry-limit.js",
+      "sha": "6250eece71cf0776780404882d0fc736835b0c54",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/task-recovery.js",
+      "sha": "d2efbcf3989b9f346225f230819e87f1500a6fb4",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/tool-profile.js",
+      "sha": "983867620df051e109516ea8ae3225f188fb0053",
+      "mode": "100644"
+    },
+    {
+      "path": "extensions/verification-evidence.js",
+      "sha": "4322df9722541967034eabb7e06f0bca3c65b5da",
+      "mode": "100644"
+    },
+    {
+      "path": "manifests/packages.json",
+      "sha": "dc5fe006a5f0f31c9afbe427c674f933124dedf5",
+      "mode": "100644"
+    },
+    {
+      "path": "manifests/pi-config.json",
+      "sha": "545eb2e29ae4d3e06518dae9491f2b28fcdc431f",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/README.md",
+      "sha": "628c6c0d48b871a2cf234b2fee072121588221e0",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/deep-execution/deepseek-stack-LICENSE",
+      "sha": "434f5afa73963649fbc738667650eebd066b1d1c",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/deep-execution/instructions.md",
+      "sha": "e8476ecbd465a284f67b108c2083ed977ccc1367",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/deep-execution/skills/ds-context-reset/SKILL.md",
+      "sha": "5565c6c2b028bb0faef94248ec42fdbde3f182cb",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/deep-execution/skills/ds-help/SKILL.md",
+      "sha": "711e200d65dda01ef683a0cf8312aeb31b410a0e",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/deep-execution/skills/ds-ledger/SKILL.md",
+      "sha": "06ce43583bab3173ea86beae3c4084f1aa6a21c1",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/deep-execution/skills/ds-mode/SKILL.md",
+      "sha": "f4ccc135b02818f7148155ae44f9db450c850d60",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/deep-execution/skills/ds-plan-loop/SKILL.md",
+      "sha": "8baa77b9eafb2b069d21ea0b1c1a31d588157764",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/deep-execution/skills/ds-unstick/SKILL.md",
+      "sha": "6e6e1e7b5c77ea968278e91c9208e19c5beb560c",
+      "mode": "100644"
+    },
+    {
+      "path": "modes/deep-execution/skills/ds-verify-loop/SKILL.md",
+      "sha": "c5cbe056ba59b6b6cb7f181f02e49953d6d3865f",
+      "mode": "100644"
+    },
+    {
+      "path": "scripts/accept-v03.ps1",
+      "sha": "9757318a328c9912642e8be1f9322b22b5603eaf",
+      "mode": "100644"
+    },
+    {
+      "path": "scripts/apply.ps1",
+      "sha": "1ae9ad2af46dc491720e44debafaf9a81fc5c0e6",
+      "mode": "100644"
+    },
+    {
+      "path": "scripts/export.ps1",
+      "sha": "6e57ead183e51ab6b1e700fe6bf42b87503dbc03",
+      "mode": "100644"
+    },
+    {
+      "path": "scripts/lib/common.ps1",
+      "sha": "d86b052e3b6dff358e32016288a045428b10bfa3",
+      "mode": "100644"
+    },
+    {
+      "path": "scripts/verify-project.ps1",
+      "sha": "be65a3e09900aabbea81b4b58e4e9f85e23890af",
+      "mode": "100644"
+    },
+    {
+      "path": "scripts/verify.ps1",
+      "sha": "c45e54763d3065c145ebe6ab0a20ef5373b75e89",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/autonomous-evidence.test.mjs",
+      "sha": "bd7a3f9b1d7a42e7f873eca3e183a14371d5032e",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/checkpoint-rpc.mjs",
+      "sha": "73b61c053a37cd001fb424caf4876db129c2c11a",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/checkpoint.test.mjs",
+      "sha": "c6b2d4f8556195ab668e21d7432aba32c9894594",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/command-guard-rpc.mjs",
+      "sha": "82281544b023ae2b27cd83a6d6ec5beeb52c1f06",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/command-guard.test.mjs",
+      "sha": "84ad715fde7b21ca1bdfccbbbd64efbdd2e49b52",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/diff-review-rpc.mjs",
+      "sha": "1787a861f3d3704a2d260cc37362e7fb1cbc37af",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/diff-review.test.mjs",
+      "sha": "e640223985ff83f0287c7bb5e48a21a9365892ce",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/dotnet-contract.test.mjs",
+      "sha": "c0ce974635d609bf3952aa72c00b952c1db0e099",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/dotnet-quality-gate-rpc.mjs",
+      "sha": "a972e06fe920a9454752ae27f67059112e82108b",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/fixtures/vue-verify-contract.mjs",
+      "sha": "88bb3695a06269cbdaaa6066fae1ddcc40fdd64b",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/fullstack-fixture.mjs",
+      "sha": "5bcbc3d47a7986917aa628f5bceae42ea4b8b8ff",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/handoff-rpc.mjs",
+      "sha": "14c162e3ffa913131c322bf24796214afc2df8ad",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/handoff.test.mjs",
+      "sha": "1b698485f4f2c7dd2b956996a2816bc285a95780",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/hashline.test.mjs",
+      "sha": "b03ff29e9045cbd89a9dfa8f5ff09e00fce1381b",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lib/autonomous-evidence.mjs",
+      "sha": "98693d88ed04881533c4fca947050d1b48e9527e",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lib/dotnet-contract.mjs",
+      "sha": "feeb0fb77c04913435364e24644d418c8a090c94",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lib/fake-hc.mjs",
+      "sha": "670e5f87ac04c4969a20fb116b585b2818e3bfcd",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lib/original-fixture.mjs",
+      "sha": "4a5992e1b11b448b77caa98051e9ea1af6e7d909",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lib/pi-rpc.mjs",
+      "sha": "694096e89e47c9d2a44068301e5e7c9e5d22f45f",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lib/sql-contract.mjs",
+      "sha": "fa225cd145907d0f89599b0edd1885491c3b12a7",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lib/vue-contract.mjs",
+      "sha": "ec9c1e014a59e194217d2728027cde4e6457603d",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lsp-cs.test.mjs",
+      "sha": "a61570c39e70844f1e0413677fea640dd2248178",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lsp-offline.test.mjs",
+      "sha": "1f3611285908488da80690f92a9611737a4141b3",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lsp-rpc.mjs",
+      "sha": "aa96a3528beef758adf7922a9fd85669ebc1eea7",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/lsp-ts.test.mjs",
+      "sha": "f338fa1e5890740a63446ca12030adbdf7b6ad7e",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/mode-rpc.mjs",
+      "sha": "9ef9370bbffc904c1803db98b882e630c2ebe120",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/natural-recovery-rpc.mjs",
+      "sha": "a278dc7cb3b9cbbd3c5ecaf4c661b4188ba0c85e",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/original-fixture.test.mjs",
+      "sha": "361ce70c37cc58897b2fe6a0007c94cc438c0952",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/quality-gate-rpc.mjs",
+      "sha": "436d5fcb12954b6931f8a568a5afa46e1019a0e3",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/quality-gate.test.mjs",
+      "sha": "870c65a0aef6ffd84dc1d20c1cba40d0f5c3c240",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/real-model/autonomous.mjs",
+      "sha": "f453d072c11d91c564f47263973e1d8976801595",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/real-model/dotnet-contract.mjs",
+      "sha": "2f026d34904a1d5fe9336d57ee637d64882f1c40",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/real-model/run.mjs",
+      "sha": "f63aa2b668b00ca67f80f65c8084639c7c670961",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/real-model/sql-contract.mjs",
+      "sha": "167782e705f2d561da17090070a28480674b98fa",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/real-model/vue-contract.mjs",
+      "sha": "b25d44b7375adf58de2b72b8cfb8df1a555cf3ca",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/retry-limit-rpc.mjs",
+      "sha": "ac0ee258719191207086ba83b91a9814b05aee2b",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/retry-limit.test.mjs",
+      "sha": "687407ca2addc22316f416522112930adae5f079",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/skill-discovery-rpc.mjs",
+      "sha": "de3d493f0e1f09d40e3ea6879ee83284c2e8a6f7",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/sql-contract.test.mjs",
+      "sha": "0248cb74f0a5f79614f8d33bba57e484303de93f",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/sql-quality-gate-rpc.mjs",
+      "sha": "2c21dcf996052b9817cfa9ad9e001d7aae6e9c6a",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/sync.ps1",
+      "sha": "b09ca402ed2afc198af896b530883b0c7886398e",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/task-recovery-rpc.mjs",
+      "sha": "3e8fbc006cf516320d158eac9c92715e9ad5eaad",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/task-recovery.test.mjs",
+      "sha": "a58770c31b2b8f9524763c795e471d4c09d190a3",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/tool-profile.test.mjs",
+      "sha": "b022583f404029c22c8d5851b9ce956741c37095",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/verification-evidence-rpc.mjs",
+      "sha": "6cd05e3962e551ecd3d1e9395dfef875ce8b6f1a",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/verification-evidence.test.mjs",
+      "sha": "afce2f225603476b36e18ae9b0beefdda4b2aebb",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/vue-contract.test.mjs",
+      "sha": "48d52549aaa62556f126c5dcebe6047dc3a48629",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/vue-quality-gate-rpc.mjs",
+      "sha": "2750ae65b05c5dda67aea3633ba2cb1dce15a3b4",
+      "mode": "100644"
+    }
+  ],
+  "replace": [
+    {
+      "path": "README.md",
+      "template": "docs/open-source/templates/README.public.md"
+    },
+    {
+      "path": "README.en.md",
+      "template": "docs/open-source/templates/README.public.en.md"
+    },
+    {
+      "path": "SECURITY.md",
+      "template": "docs/open-source/templates/SECURITY.public.md"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "template": "docs/open-source/templates/THIRD_PARTY_NOTICES.public.md"
+    },
+    {
+      "path": "LICENSE",
+      "template": "docs/open-source/templates/LICENSE"
+    },
+    {
+      "path": "agent/AGENTS.md",
+      "template": "docs/open-source/templates/AGENTS.md"
+    },
+    {
+      "path": "manifests/providers.json",
+      "template": "docs/open-source/templates/providers.json"
+    },
+    {
+      "path": "docs/operations-manual.md",
+      "template": "docs/open-source/templates/operations.public.md"
+    },
+    {
+      "path": ".github/workflows/verification.yml",
+      "template": "docs/open-source/templates/verification.public.yml"
+    }
+  ],
+  "note": "Never publish this preparation manifest. Export only from a trusted reviewed preparation commit; no history, local data, or remote operations. Owner must confirm first-party rights and review the exported files."
+}
