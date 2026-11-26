@@ -26,8 +26,20 @@ function verify(){
   for(const [label,args] of commands){
     const started=Date.now();
     console.log("START: "+label+" (npm "+args.join(" ")+")");
+    const env={...process.env,CI:"1",NO_COLOR:"1",FORCE_COLOR:"0",PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD:"1",npm_config_offline:"true",npm_config_yes:"false"};
+    if(label==="browser"){
+      const tmp=process.env.ASTRA_VUE_BROWSER_TMP;
+      if(!tmp||!path.isAbsolute(tmp)||!lstatSync(tmp,{throwIfNoEntry:false})?.isDirectory()){
+        console.error("BLOCKED_EDGE_TEMP: canonical isolated browser temp missing");return 2;
+      }
+      // Keep the Playwright/test runner's synthetic home. Only Edge receives
+      // its normal Windows known-folder environment from launchOptions.env.
+      // Playwright uses this canonical temp path for a fresh browser profile.
+      Object.assign(env,{TEMP:tmp,TMP:tmp,TMPDIR:tmp});
+      console.log("Edge: Windows OS environment allowlist; fresh temporary profile");
+    }
     const run=spawnSync(process.execPath,[npm,"--offline","--ignore-scripts","--no-audit","--no-fund","--yes=false",...args],{
-      cwd,env:{...process.env,CI:"1",NO_COLOR:"1",FORCE_COLOR:"0",PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD:"1",npm_config_offline:"true",npm_config_yes:"false"},
+      cwd,env,
       encoding:"utf8",timeout:90000,maxBuffer:4*1024*1024,windowsHide:true
     });
     const output=String(run.stdout??"")+"\n"+String(run.stderr??"");
