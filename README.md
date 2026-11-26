@@ -99,7 +99,8 @@ Pi 若設定了 `PI_CODING_AGENT_DIR`，請以 `-PiHome` 指定實際的 Pi 家�
 
 ```powershell
 # 1) 取得儲存庫（僅複製，不動既有設定）
-git clone <YOUR_PRIVATE_SYNC_REPO_URL> "$HOME\Documents\pi-config"
+$privateRepo = "https://github.com/YOUR_ACCOUNT/YOUR_PRIVATE_SYNC_REPO.git" # replace with your private repository URL
+git clone $privateRepo "$HOME\Documents\pi-config"
 cd "$HOME\Documents\pi-config"
 
 # 2) 先看計畫，不寫入
