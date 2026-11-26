@@ -120,3 +120,14 @@ test("a just-created resume lock with no owner yet is not removed", async () => 
     assert.equal((await j.lockForResume("a")).ok,false);
   } finally { await rm(dir,{recursive:true,force:true}); }
 });
+
+test("concurrent stale lock cleanup does not allow two continuers", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(),"astra-stale-lock-"));
+  try {
+    const j = new Journal(dir);
+    await writeFile(path.join(dir,"a.resume.lock"),"999999991");
+    const results=await Promise.all(Array.from({length:6},()=>j.lockForResume("a")));
+    assert.equal(results.filter(t=>t.ok).length,1);
+    await results.find(t=>t.ok).release();
+  } finally { await rm(dir,{recursive:true,force:true}); }
+});
