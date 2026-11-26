@@ -1,0 +1,47 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { createTracker, registerWorkflow } from "../extensions/workflow.js";
+test("routes are bounded and reset; casual work has no route", () => {
+  const t = createTracker();
+  assert.equal(t.snapshot().route, null);
+  assert.equal(t.begin("invalid"), false);
+  assert.equal(t.begin("fix"), true);
+  assert.equal(t.begin("review"), false);
+  assert.equal(t.snapshot().missingEvidence, true);
+  t.reset();
+  assert.equal(t.begin("review"), true);
+  assert.equal(t.snapshot().missingEvidence, false);
+});
+test("review evidence is invalidated by later shell or edit; shell does not mean tests passed", () => {
+  const t = createTracker();
+  t.begin("fix");
+  t.observe({toolName:"bash",isError:true});
+  t.observe({toolName:"review_diff",isError:false,result:{details:{unchanged:true}}});
+  assert.equal(t.snapshot().reviewObserved,true);
+  assert.equal(t.snapshot().errors,1);
+  assert.equal(t.snapshot().missingEvidence,false);
+  assert.equal(Object.hasOwn(t.snapshot(),"passed"),false);
+  t.observe({toolName:"edit",isError:false});
+  assert.equal(t.snapshot().missingEvidence,true);
+  t.observe({toolName:"review_diff",isError:false,result:{details:{unchanged:false}}});
+  assert.equal(t.snapshot().reviewObserved,false);
+  t.reset();
+  assert.equal(t.snapshot().shell,0);
+});
+test("registration uses existing tools without widening permissions", async () => {
+  const hooks = new Map(), notices = [];
+  let tool;
+  const pi = {on:(n,f)=>hooks.set(n,f),registerTool:t=>tool=t,registerCommand(){},getActiveTools:()=>["read","workflow_begin"]};
+  const Type = {Object:x=>x,Union:x=>x,Literal:x=>x};
+  const ctx = {ui:{setStatus(){},notify:(...args)=>notices.push(args)}};
+  registerWorkflow(pi,Type);
+  hooks.get("agent_start")({},ctx);
+  const result = await tool.execute("1",{kind:"feature"},null,null,ctx);
+  assert.equal(result.details.route,"feature");
+  assert.match(result.content[0].text,/read, workflow_begin/);
+  hooks.get("agent_end")({},ctx);
+  assert.equal(notices[0][1],"warning");
+  hooks.get("agent_start")({},ctx);
+  hooks.get("agent_end")({},ctx);
+  assert.equal(notices.length,1);
+});

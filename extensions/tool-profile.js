@@ -1,7 +1,7 @@
 const profiles = {
-  local: ["read", "edit", "write", "bash"],
-  cloud: ["read", "edit", "write"],
-  review: ["read", "grep", "find", "ls", "review_diff"],
+  local: ["read", "edit", "write", "bash", "grep", "find", "ls", "lsp_diagnostics", "lsp_definition", "lsp_references", "review_diff", "workflow_begin"],
+  cloud: ["read", "edit", "write", "grep", "find", "ls", "lsp_diagnostics", "lsp_definition", "lsp_references", "review_diff", "workflow_begin"],
+  review: ["read", "grep", "find", "ls", "review_diff", "workflow_begin"],
 };
 
 export default function (pi) {
