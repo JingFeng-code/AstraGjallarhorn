@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { Journal, buildResumePrompt, classifyTool, findOrphans, pidAlive, summarizeTools, selectResumeTask, claimResume } from "../extensions/task-recovery.js";
+import { Journal, buildResumePrompt, classifyTool, findOrphans, pidAlive, summarizeTools, selectResumeTask, claimResume, inheritResumeContext } from "../extensions/task-recovery.js";
 
 const task = (over = {}) => ({
   id: "t1", sessionId: "s", cwd: "/p", prompt: "migrate the notes table", startedAt: new Date().toISOString(), ownerPid: 999999991, status: "running",
@@ -130,4 +130,36 @@ test("concurrent stale lock cleanup does not allow two continuers", async () => 
     assert.equal(results.filter(t=>t.ok).length,1);
     await results.find(t=>t.ok).release();
   } finally { await rm(dir,{recursive:true,force:true}); }
+});
+
+test("repeated recovery keeps the first request and all prior tool outcomes", () => {
+  const original = task({
+    id: "original", status: "interrupted", prompt: "migrate the notes table",
+    tools: [
+      { id: "old-done", name: "write", brief: '{"path":"schema.sql"}', class: "mutating", state: "ended", isError: false },
+      { id: "old-unknown", name: "bash", brief: '{"command":"node deploy.js"}', class: "mutating", state: "started" },
+    ],
+  });
+  const first = task({
+    id: "first-resume", prompt: "continue the interrupted task",
+    tools: [
+      { id: "first-done", name: "read", brief: '{"path":"schema.sql"}', class: "read", state: "ended", isError: false },
+      { id: "first-unknown", name: "bash", brief: '{"command":"node migrate.js"}', class: "mutating", state: "started" },
+    ],
+  });
+  inheritResumeContext(first, original);
+  const second = task({
+    id: "second-resume", prompt: "continue again",
+    tools: [{ id: "second-done", name: "grep", brief: '{"pattern":"CREATE TABLE"}', class: "read", state: "ended", isError: false }],
+  });
+  inheritResumeContext(second, first);
+
+  assert.equal(second.prompt, "migrate the notes table");
+  const summary = summarizeTools(second);
+  assert.deepEqual(summary.done.map((t) => t.id), ["old-done", "first-done", "second-done"]);
+  assert.deepEqual(summary.unsafe.map((t) => t.id), ["old-unknown", "first-unknown"]);
+  const prompt = buildResumePrompt(second);
+  assert.match(prompt, /Original request:\n(migrate the notes table)/);
+  assert.match(prompt, /node deploy\.js/);
+  assert.match(prompt, /node migrate\.js/);
 });

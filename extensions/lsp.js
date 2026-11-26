@@ -172,15 +172,16 @@ export class LspClient {
     const pull = this.serverCapabilities.diagnosticProvider || this.registrations.some((r) => r.method === "textDocument/diagnostic");
     if (pull) {
       const items = [];
-      let answered = false;
+      let complete = true;
       for (const identifier of this.pullIdentifiers()) {
         try {
           const report = await this.request("textDocument/diagnostic", { textDocument: { uri }, ...(identifier ? { identifier } : {}) }, timeout);
-          if (report?.kind === "full") { answered = true; items.push(...(report.items ?? [])); }
-          else if (report?.kind === "unchanged") answered = true;
-        } catch (error) { this.log(`pull diagnostics failed: ${error.message}`); }
+          if (report?.kind === "full" && Array.isArray(report.items)) items.push(...report.items);
+          else if (report?.kind !== "unchanged") complete = false;
+        } catch (error) { complete = false; this.log(`pull diagnostics failed: ${error.message}`); }
       }
-      if (answered) return { source: "pull", version, diagnostics: dedupe(items) };
+      if (!complete) return { source: "pull", version, diagnostics: undefined };
+      return { source: "pull", version, diagnostics: dedupe(items) };
     }
     // Push model: wait for a publish that covers this version (or any publish after the sync).
     let startSeq = this.seq;
@@ -398,7 +399,7 @@ export default async function (pi) {
       try {
         const client = await manager.get(t.server, t.abs, ctx.cwd);
         const result = await client.diagnose(t.abs, t.languageId);
-        if (result.diagnostics === undefined) return text(`INCONCLUSIVE: the ${t.server} server did not report diagnostics for ${params.path} (version ${result.version}). This is not a clean result.`, false, { status: "inconclusive" });
+        if (result.diagnostics === undefined) return text(`INCONCLUSIVE: the ${t.server} server did not provide complete diagnostics for ${params.path} (version ${result.version}). This is not a clean result.`, false, { status: "inconclusive" });
         const hidden = result.diagnostics.filter((d) => (d.severity ?? 1) > 2).length;
         const real = result.diagnostics.filter((d) => (d.severity ?? 1) <= 2);
         const errors = real.filter((d) => (d.severity ?? 1) === 1);

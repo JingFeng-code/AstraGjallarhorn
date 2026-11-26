@@ -46,7 +46,7 @@ Default 與 Deep Execution 模式調整 Skills 和系統提示；它們不切換
 
 Architect 與 Correct 可由模型依任務按需發現，模型不保證每次都選用；create-verification-skill 保留明確觸發，避免意外建立設定。Retry Limit 對同一工具及相同參數的連續失敗設上限；不同參數的正常除錯不會被當成同一失敗。自動交接預設關閉，需明確授權。
 
-resume_interrupted_task 只在當前工作目錄尋找中斷任務。候選必須唯一；接續前會要求確認是否將原始需求與工具摘要傳給目前模型。它會重讀紀錄並核對狀態，不會自動重跑指令、啟動程序或還原檔案。
+resume_interrupted_task 只在當前工作目錄尋找中斷任務。候選必須唯一；接續前會要求確認，並將原始需求、歷史工具摘要及結果未知的操作傳給目前模型。再次中斷時會保留這些背景。它會重讀紀錄並核對狀態，不會自動重跑指令、啟動程序或還原檔案。
 
 verification_status 顯示本回合已觀察到的檢查結果；證據只保留必要的工具結果與有限 Git 指紋，不代表非 Git 狀態或所有外部變更均已覆蓋。品質關卡只報告實際可觀察的受支援檢查；缺少或未知的證據應視為未驗證。
 
@@ -124,7 +124,7 @@ Default and Deep Execution modes change Skills and system prompts; they do not s
 
 Architect and Correct can be discovered on demand by the model, which is not guaranteed to select them. create-verification-skill remains explicitly triggered to avoid accidental configuration generation. Retry Limit caps repeated failures for the same tool and same arguments; normal debugging with different arguments is not treated as the same failure. Automatic handoff remains off unless explicitly authorized.
 
-resume_interrupted_task searches for interrupted work in the current working directory. It proceeds only when there is one candidate and after confirmation to pass the original request and tool summary to the current model. It rereads the record and checks state; it does not rerun commands, start processes, or restore files automatically.
+resume_interrupted_task searches for interrupted work in the current working directory. It proceeds only when there is one candidate and after confirmation to pass the original request, prior tool summaries, and outcome-unknown operations to the current model. If interrupted again, it preserves that context. It rereads the record and checks state; it does not rerun commands, start processes, or restore files automatically.
 
 verification_status reports checks observed in the current turn. Evidence stores only necessary tool results and a limited Git fingerprint; it cannot cover every non-Git state or external change. Quality gates report supported checks that were actually observed. Missing or unknown evidence is unverified.
 

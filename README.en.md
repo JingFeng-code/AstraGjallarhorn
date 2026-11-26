@@ -2,7 +2,7 @@
 
 [繁體中文](README.md) | English
 
-Controlled configuration synchronization and engineering verification tooling for Pi Coding Agent. v0.3 is a development preview; see GitHub Releases for published versions.
+Controlled configuration synchronization and engineering verification tooling for Pi Coding Agent. v0.3 is a development preview; this integration candidate was pushed for review in PR #6 and has not been merged into main or released. See GitHub Releases for published versions.
 
 ## Features
 
@@ -11,7 +11,7 @@ Controlled configuration synchronization and engineering verification tooling fo
 - LSP, Diff Review, command guards, checkpoints, retry limits, task recovery, and explicitly authorized handoff.
 - The v0.3 single-agent flow can discover Architect and Correct skills on demand. It adds no roles, router, or fixed workflow.
 - Verification evidence and quality gates report observed tool results and supported project checks; they do not claim that every change is verified.
-- Natural-language recovery reads an interrupted task only after there is one candidate and the user confirms the context transfer. It does not rerun commands or restore files automatically.
+- Natural-language recovery reads an interrupted task only after there is one candidate and the user confirms the context transfer. It preserves the original request, prior tool summaries, and outcome-unknown operations without rerunning commands or restoring files automatically.
 - Checkpoint Preview is read-only. Actual restore still requires an explicit user command.
 
 ## Requirements and quick start
