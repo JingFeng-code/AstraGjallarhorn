@@ -33,3 +33,7 @@ Alternatively, in-place visibility change requires the blocking items above, and
 ## Acceptance
 
 GO only after the owner has checked all blocking items for the chosen publication route, reviewed the final file set, confirmed license and release status, and authorized the public action. Until then: **NO-GO, keep Private**.
+
+## Clean-snapshot planning supplement
+
+The exact-path candidate inventory, neutral settings templates and remaining approvals are recorded in [public snapshot checklist](open-source/public-snapshot-checklist.md) and [file plan](open-source/public-source-plan.json). The two recorded upstream LICENSE files have now been directly confirmed MIT at their pinned revisions; first-party rights and exact material provenance remain pending. No extra CI was triggered for preparation. No public repo creation or visibility-changing capability is exposed by the current connector.

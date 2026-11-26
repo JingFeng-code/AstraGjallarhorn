@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "note": "Public template: no personal provider baseline. Set provider credentials locally. Do not publish personal exports.",
+  "providers": []
+}
