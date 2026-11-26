@@ -14,7 +14,7 @@ export function parseQualityPolicy(raw){
   if(p?.version!==1||typeof p.check!=="string"||!/^node --test [a-zA-Z0-9][a-zA-Z0-9._-]{0,100}\.m?js$/.test(p.check)||
     typeof p.failureMarker!=="string"||!/^[a-zA-Z0-9_]{3,80}$/.test(p.failureMarker)||
     !Array.isArray(p.writable)||p.writable.length!==1||!p.writable.every(isName)||
-    p.writable.includes(p.check.split(" ").at(-1))||!/\.[cm]?[jt]s$/.test(p.writable[0])){
+    p.writable.some(name=>name.toLowerCase()===p.check.split(" ").at(-1).toLowerCase())||!/\.[cm]?[jt]s$/.test(p.writable[0])){
     throw Error("Invalid explicit quality contract; this pilot accepts one existing source file and one standalone Node test command.");
   }
   return {check:p.check,failureMarker:p.failureMarker,writable:[...p.writable]};
@@ -27,15 +27,24 @@ export function qualityDecision(state,final){
   if(state.review!==final)return "FINAL_REVIEW_MISSING_OR_STALE";
   return "CHECK_AND_REVIEW_OBSERVED";
 }
-async function allowedEdit(root,input,policy){
-  if(typeof input?.path!=="string")return false;
+export async function allowedEdit(root,input,policy){
+  const raw=input?.path;
+  if(typeof raw!=="string"||!raw||raw.includes("\0"))return false;
   const canonical=await realpath(root);
-  const candidate=path.resolve(root,input.path);
-  const rel=path.relative(canonical,candidate);
   const norm=v=>process.platform==="win32"?v.toLowerCase():v;
-  if(!policy.writable.some(p=>norm(p)===norm(rel)))return false;
+  // Compare lexical paths within the same root namespace first. The cwd can
+  // contain a Windows short-name alias or a junction. Resolve the trusted
+  // root, not an arbitrary user-supplied parent directory.
+  const original=path.resolve(root);
+  const candidate=path.resolve(original,raw);
+  const approved=policy.writable.find(name=>
+    norm(candidate)===norm(path.join(original,name))||
+    norm(candidate)===norm(path.join(canonical,name)));
+  if(!approved)return false;
+  const expected=path.join(canonical,approved);
   const st=await lstat(candidate);
-  return st.isFile()&&!st.isSymbolicLink()&&st.nlink===1&&norm(await realpath(candidate))===norm(candidate);
+  if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1)return false;
+  return norm(await realpath(candidate))===norm(expected);
 }
 export function registerQualityGate(pi,Type,policy,fingerprint=worktreeFingerprint,checkPath=allowedEdit){
   if(!policy)return;

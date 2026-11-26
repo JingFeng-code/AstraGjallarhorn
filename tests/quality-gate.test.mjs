@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parseQualityPolicy,qualityDecision,registerQualityGate} from "../extensions/quality-gate.js";
+import {parseQualityPolicy,qualityDecision,registerQualityGate,allowedEdit} from "../extensions/quality-gate.js";
 const p={version:1,check:"node --test pricing.test.mjs",failureMarker:"ERR_ASSERTION",writable:["pricing.mjs"]};
 test("explicit narrow policy only; absent policy inactive; reject shell chains and test edits",()=>{
   assert.equal(parseQualityPolicy(undefined),null);
@@ -32,4 +32,25 @@ test("gate blocks premature and unauthorized edits, arbitrary shell, and stale d
 test("no gate pass from failed unrelated example or incomplete evidence",()=>{
   assert.equal(qualityDecision({reproduced:false,edits:1,last:"b",check:"b",review:"b"},"b"),"REPRODUCTION_NOT_OBSERVED");
   assert.equal(qualityDecision({reproduced:true,edits:1,last:"b",check:"b",review:"b",invalid:true},"b"),"UNKNOWN_OR_BLOCKED");
+});
+
+test("real filesystem scope accepts a cwd directory alias but rejects a file alias or hardlink",async()=>{
+  const {mkdtemp,mkdir,writeFile,symlink,link,rm}=await import("node:fs/promises");
+  const {tmpdir}=await import("node:os");
+  const path=(await import("node:path")).default;
+  const base=await mkdtemp(path.join(tmpdir(),"astra-gate-path-"));
+  try{
+    const root=path.join(base,"real"),alias=path.join(base,"alias");
+    await mkdir(root);
+    await writeFile(path.join(root,"pricing.mjs"),"fixture");
+    await writeFile(path.join(root,"pricing.test.mjs"),"test");
+    await symlink(root,alias,process.platform==="win32"?"junction":"dir");
+    const policy=parseQualityPolicy(JSON.stringify(p));
+    assert.equal(await allowedEdit(alias,{path:"pricing.mjs"},policy),true);
+    assert.equal(await allowedEdit(alias,{path:path.join(root,"pricing.mjs")},policy),true);
+    assert.equal(await allowedEdit(alias,{path:"pricing.test.mjs"},policy),false);
+    assert.equal(await allowedEdit(alias,{path:"../real/pricing.test.mjs"},policy),false);
+    await link(path.join(root,"pricing.mjs"),path.join(root,"other.mjs"));
+    assert.equal(await allowedEdit(alias,{path:"pricing.mjs"},policy),false);
+  }finally{await rm(base,{recursive:true,force:true,maxRetries:3});}
 });
