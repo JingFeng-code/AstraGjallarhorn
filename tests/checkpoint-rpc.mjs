@@ -22,6 +22,13 @@ const pi = await startPi({
   script: [
     { tools: [{ name: "bash", args: { command: "echo agent > a.txt && echo made > created.txt && rm u.txt" } }] },
     { text: "done" },
+    { tools: [{ name: "checkpoint_preview", args: {} }] },
+    (request) => {
+      const result = request.messages.filter(m => m.role === "tool").at(-1);
+      const id = JSON.stringify(result).match(/\d{8}-\d{6}-[a-f0-9]{4}/)?.[0];
+      return { tools: [{ name: "checkpoint_preview", args: { checkpointId: id ?? "missing" } }] };
+    },
+    { text: "preview only" },
   ],
 });
 try {
@@ -31,6 +38,13 @@ try {
   assert.ok(refs.some((r) => r.endsWith("/pre")) && refs.some((r) => r.endsWith("/post")));
   const id = refs[0].split("/")[3];
   assert.ok(pi.notices().some((n) => n.includes(`Checkpoint ${id} saved before the task`)));
+  await pi.prompt("剛才的修改有問題，先幫我查看能不能還原");
+  const previews = pi.toolEnds().filter(e => e.toolName === "checkpoint_preview");
+  assert.equal(previews.length,2);
+  assert.equal(previews[0].result.details.candidates[0].id,id);
+  assert.equal(previews[1].result.details.previewOnly,true);
+  assert.equal(previews[1].result.details.id,id);
+  assert.equal(await readFile(path.join(pi.work, "a.txt"), "utf8"), "agent\n");
   await pi.prompt("/checkpoint restore " + id);
   await new Promise((r) => setTimeout(r, 1500));
   assert.match(pi.notices().at(-1), /REVERT a\.txt[\s\S]*Preview only/);

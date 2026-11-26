@@ -6,7 +6,7 @@ const readFile = async (p, enc) => lf(await readRaw(p, enc));
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { applyRestore, createCheckpoint, listCheckpoints, planRestore, renderPlan, repoRootOf } from "../extensions/checkpoint.js";
+import { applyRestore, createCheckpoint, listCheckpoints, planRestore, renderPlan, repoRootOf, worktreeIdentity, selectPreviewCandidates } from "../extensions/checkpoint.js";
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8" });
 const exists = (p) => access(p).then(() => true, () => false);
@@ -123,4 +123,26 @@ test("other live Pi processes working in the same work tree are detected, stale 
     await clearActive(root);
     assert.equal(await exists(path.join(marker, `${process.pid}.json`)), false);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("model preview excludes active, partial, unknown and other-worktree checkpoints",async()=>{
+  const root=await fixture();
+  const linked=root+"-linked";
+  try{
+    const cp=await createCheckpoint(root,{phase:"pre"});
+    await writeFile(path.join(root,"a.txt"),"changed\n");
+    await createCheckpoint(root,{id:cp.id,phase:"post"});
+    const incomplete=await createCheckpoint(root,{phase:"pre"});
+    git(root,"worktree","add","-b","fixture-linked",linked,"HEAD");
+    const other=await createCheckpoint(linked,{phase:"pre"});
+    await createCheckpoint(linked,{id:other.id,phase:"post"});
+    const all=await listCheckpoints(root);
+    const identity=await worktreeIdentity(root);
+    assert.notEqual(identity,await worktreeIdentity(linked));
+    assert.deepEqual(selectPreviewCandidates([...all,{id:"legacy",pre:"a",post:"b"}],identity,incomplete.id).map(c=>c.id),[cp.id]);
+    assert.equal(selectPreviewCandidates(all,identity,cp.id).length,0);
+  }finally{
+    await rm(linked,{recursive:true,force:true});
+    await rm(root,{recursive:true,force:true});
+  }
 });

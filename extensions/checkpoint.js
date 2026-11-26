@@ -5,7 +5,8 @@
 // the task itself changed and refuses to overwrite anything modified by someone else.
 import { execFile } from "node:child_process";
 import { mkdir, writeFile, rm, stat, unlink, readdir, readFile } from "node:fs/promises";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
+import { realpath } from "node:fs/promises";
 import path from "node:path";
 
 const POLICY_ENTRY = "astragjallarhorn-checkpoint-policy";
@@ -63,9 +64,15 @@ function newId() {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${randomBytes(2).toString("hex")}`;
 }
 
+export async function worktreeIdentity(root) {
+  const gitDir = path.resolve(root, (await git(root, ["rev-parse", "--git-dir"])).trim());
+  const canonical = await realpath(gitDir);
+  return createHash("sha256").update(process.platform === "win32" ? canonical.toLowerCase() : canonical).digest("hex");
+}
+
 export async function createCheckpoint(root, { label = "", phase = "pre", id = newId(), meta = {} } = {}) {
   const tree = await snapshotTree(root);
-  const message = `astra checkpoint ${id} ${phase}\n\n${JSON.stringify({ id, phase, label, ...meta })}\n`;
+  const message = `astra checkpoint ${id} ${phase}\n\n${JSON.stringify({ id, phase, label, ...meta, worktree: await worktreeIdentity(root) })}\n`;
   const commit = await commitTree(root, tree, message);
   await git(root, ["update-ref", `${REF_ROOT}/${id}/${phase}`, commit]);
   return { id, phase, tree, commit };
@@ -83,12 +90,13 @@ export async function listCheckpoints(root) {
   }
   const result = [];
   for (const entry of byId.values()) {
-    let label = "";
+    let label = "", worktree, session;
     try {
       const msg = await git(root, ["log", "-1", "--format=%B", entry.pre ?? entry.post ?? entry.safety]);
-      label = JSON.parse(msg.split("\n").find((l) => l.startsWith("{")) ?? "{}").label ?? "";
+      const meta = JSON.parse(msg.split("\n").find((l) => l.startsWith("{")) ?? "{}");
+      label = meta.label ?? ""; worktree = meta.worktree; session = meta.session;
     } catch { /* ignore */ }
-    result.push({ ...entry, label });
+    result.push({ ...entry, label, worktree, session });
   }
   return result.sort((a, b) => a.id.localeCompare(b.id));
 }
@@ -208,7 +216,14 @@ async function prune(root) {
   }
 }
 
-export default function (pi) {
+// Only completed checkpoints with known provenance are discoverable by the
+// model. Historical/partial checkpoints stay available via the manual command.
+export function selectPreviewCandidates(checkpoints, identity, activeId) {
+  return checkpoints.filter(c=>c.worktree===identity&&c.pre&&c.post&&c.id!==activeId);
+}
+
+export default async function (pi) {
+  const { Type } = await import("typebox");
   let enabled = true;
   let current; // { id, root, preTree }
   let lastPostTree = new Map(); // root -> tree
@@ -256,6 +271,34 @@ export default function (pi) {
       lastPostTree.set(root, cp.tree);
       pi.appendEntry(TASK_ENTRY, { id, root, postTree: cp.tree, phase: "post" });
     } catch { /* checkpoint is best effort */ }
+  });
+
+  pi.registerTool({
+    name: "checkpoint_preview",
+    label: "還原修改預覽",
+    description: "Read-only with respect to working files: find completed checkpoints from the current Git worktree, or preview a specific checkpoint identified by the user. For a request to undo recent changes, first inspect candidate checkpoints and their planned paths. Never applies a restore, writes working files, or chooses a checkpoint from another worktree. Do not guess when the intended checkpoint is unclear.",
+    promptSnippet: "Find same-worktree completed checkpoints and preview a possible restore",
+    parameters: Type.Object({
+      checkpointId: Type.Optional(Type.String({description:"Omit to list recent completed candidates; provide only a candidate identified from the list or by the user."}))
+    }),
+    async execute(_id,params,_signal,_update,ctx) {
+      const answer=(text,details={},isError=false)=>({content:[{type:"text",text}],details,isError});
+      try {
+        const root=await repoRootOf(ctx.cwd);
+        if(!root)return answer("Not in a Git worktree.",{},true);
+        const candidates=selectPreviewCandidates(await listCheckpoints(root),await worktreeIdentity(root),current?.id);
+        if(!params.checkpointId){
+          const items=candidates.slice(-10).reverse().map(c=>({id:c.id,date:c.date,sameSession:c.session===ctx.sessionManager.getSessionId?.()}));
+          return answer(items.length?"Completed checkpoints in this worktree (newest first). Select based on user intent; if ambiguous ask before previewing. No files changed.\n"+JSON.stringify(items):"No completed checkpoint with verified worktree provenance. Older or interrupted checkpoints require manual inspection.",{candidates:items});
+        }
+        const c=candidates.find(c=>c.id===params.checkpointId);
+        if(!c)return answer("Checkpoint unavailable, incomplete, or from another/unknown worktree.",{},true);
+        const plan=await planRestore(root,c.id);
+        // A completed checkpoint must still have the same pre/post refs.
+        if(plan.pre!==c.pre||plan.post!==c.post)return answer("Checkpoint changed during preview; inspect again.",{},true);
+        return answer(renderPlan(plan)+"\nPreview only. No working files changed. This tool cannot apply or force restore. Existing manual restore is available only after user reviews the scope and authorizes it.",{id:c.id,actions:plan.actions.map(a=>({path:a.path,kind:a.kind,external:a.external})),outside:plan.outside.map(c=>c.path),previewOnly:true});
+      }catch(error){return answer("Checkpoint preview failed: "+String(error.message).slice(0,200),{},true);}
+    }
   });
 
   pi.registerCommand("checkpoint", {
