@@ -192,11 +192,14 @@ export function renderPlan(plan) {
 
 export async function applyRestore(root, plan, { force = false } = {}) {
   const done=[], skipped=[], todo=[];
+  if(await otherActive(root))throw Error("Another Pi task is active in this worktree; stop it or isolate before restore.");
   // Validate all planned writes and read originals before touching working files.
   for(const a of plan.actions){
     if(a.external&&!force){skipped.push(a.path);continue;}
     await checkedPath(root,a.path);
     if(await worktreeBlob(root,a.path)!==a.currentBlob)throw Error("Restore plan is stale: "+a.path);
+    // A previous successful restore may already have removed this file.
+    if(a.kind==="delete-created"&&a.currentBlob===undefined){skipped.push(a.path);continue;}
     const preMode=await regularTreeEntry(root,plan.pre,a.path);
     const postMode=plan.post?await regularTreeEntry(root,plan.post,a.path):undefined;
     if(preMode&&postMode&&preMode!==postMode)throw Error("File mode changes require manual review: "+a.path);
@@ -210,6 +213,7 @@ export async function applyRestore(root, plan, { force = false } = {}) {
   const safety=await createCheckpoint(root,{id:safetyId,phase:"safety",label:"automatic backup taken before restore"});
   try{
     for(const {a,bytes} of todo){
+      if(await otherActive(root))throw Error("Another Pi task became active; restore stopped.");
       const checked=await checkedPath(root,a.path);
       if(await worktreeBlob(root,a.path)!==a.currentBlob)throw Error("Restore plan became stale: "+a.path);
       if(bytes===undefined){await unlink(checked.abs);}
@@ -236,6 +240,12 @@ const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (error
 async function activeDir(root) {
   const gitDir = path.resolve(root, (await git(root, ["rev-parse", "--git-dir"])).trim());
   return path.join(gitDir, "astra-active");
+}
+async function otherActive(root){
+  const dir=await activeDir(root);
+  let entries;
+  try{entries=await readdir(dir);}catch(e){if(e.code==="ENOENT")return false;throw e;}
+  return entries.some(name=>{const match=/^(\d+)\.json$/.exec(name);return match&&Number(match[1])!==process.pid&&alive(Number(match[1]));});
 }
 export async function markActive(root, info = {}) {
   const dir = await activeDir(root);

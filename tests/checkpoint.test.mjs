@@ -169,3 +169,17 @@ test("unsafe paths and linked parents are rejected",async()=>{
     await assert.rejects(checkedPath(root,"linked/a.txt"),/Linked|Reparse/);
   }finally{await rm(root,{recursive:true,force:true});await rm(outside,{recursive:true,force:true});}
 });
+
+test("restore refuses a known live peer in the same worktree",async()=>{
+  const root=await fixture();
+  try{
+    const cp=await createCheckpoint(root,{phase:"pre"});
+    await writeFile(path.join(root,"a.txt"),"agent\n");
+    await createCheckpoint(root,{id:cp.id,phase:"post"});
+    const plan=await planRestore(root,cp.id);
+    await mkdir(path.join(root,".git","astra-active"),{recursive:true});
+    await writeFile(path.join(root,".git","astra-active",process.ppid+".json"),"{}");
+    await assert.rejects(applyRestore(root,plan),/Another Pi task/);
+    assert.equal(await readFile(path.join(root,"a.txt"),"utf8"),"agent\n");
+  }finally{await rm(root,{recursive:true,force:true});}
+});
