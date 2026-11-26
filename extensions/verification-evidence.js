@@ -6,6 +6,7 @@ import path from "node:path";
 
 const patterns = [
   ["project-check", /^node examples\/sql\/verify\.mjs$/],
+  ["project-check", /^node examples\/vue\/verify-contract\.mjs$/],
   ["test", /^node --test(?: [a-zA-Z0-9_./-]+\.m?js)?$/],
   ["test", /^npm test$/],
   ["test", /^(?:npm run|pnpm run|yarn run) test$/],

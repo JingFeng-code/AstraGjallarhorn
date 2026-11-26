@@ -42,15 +42,16 @@ export async function vueFixture(base){
   if(!(await lstat(path.join(cache,"_cacache")).catch(()=>null))?.isDirectory())throw Error("BLOCKED_OFFLINE_NPM_CACHE: existing npm cache missing; no downloads");
   const originals=Object.fromEntries(await Promise.all(names.map(async f=>[f,await readFile(path.join(repo,f),"utf8")])));
   const source=originals[implementation];assert.ok(source.includes(originalExpression)&&!source.includes(brokenExpression));
-  // Keep the original browser assertions. Replace npm exec server launcher
-  // in the trusted fixture only with the installed Vite executable.
+  // Preserve the known-green npm-script preview path; require offline/no
+  // install confirmation, and pipe web-server startup diagnostics in failures.
   const config="examples/vue/playwright.config.mjs",old="npm exec -- vite preview";
   assert.ok(originals[config].includes(old));
-  originals[config]=originals[config].replace(old,"node node_modules/vite/bin/vite.js preview");
+  originals[config]=originals[config].replace(old,"npm exec --offline --yes=false -- vite preview")
+    .replace("reuseExistingServer: false,","reuseExistingServer: false,\n    stdout: \"pipe\",\n    stderr: \"pipe\",");
   originals[verifier]=await readFile(path.join(repo,"tests/fixtures/vue-verify-contract.mjs"),"utf8");
   originals["README.md"]="# Notes maintenance incident\nSaved titles must normalize leading, trailing and internal whitespace. Run "+check+" before and after repair. The verifier runs the original unit test, lint, typecheck, build and browser test. Only "+implementation+" may change. Dependencies are prepared offline by the harness; do not install anything.\n";
   async function prepareEnv(dir){
-    const env=fixtureEnv(dir,cache);
+    const env={...fixtureEnv(dir,cache),ASTRA_VUE_NPM_CLI:npm,npm_config_yes:"false"};
     await mkdir(env.HOME,{recursive:true});
     await writeFile(env.npm_config_userconfig,"");
     await writeFile(env.npm_config_globalconfig,"");
@@ -90,6 +91,6 @@ export async function vueFixture(base){
   async function unchanged(work){
     return (await Promise.all(Object.entries(originals).filter(([f])=>f!==implementation).map(async([f,content])=>await readFile(path.join(work,f),"utf8").then(v=>v===content,()=>false)))).every(Boolean);
   }
-  const childEnv=Object.fromEntries(Object.entries(env).filter(([k])=>/^(npm_config_|PLAYWRIGHT_|CI$|NO_COLOR$|FORCE_COLOR$)/.test(k)));
+  const childEnv=Object.fromEntries(Object.entries(env).filter(([k])=>/^(npm_config_|PLAYWRIGHT_|ASTRA_VUE_NPM_CLI$|CI$|NO_COLOR$|FORCE_COLOR$)/.test(k)));
   return {setup,independentlyVerify,unchanged,childEnv,originalExpression,brokenExpression};
 }

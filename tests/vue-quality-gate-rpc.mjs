@@ -24,9 +24,23 @@ try{
   await pi.prompt("業主反映儲存備註標題後仍有多餘空白，幫我查原因並修好。");
   const ends=pi.toolEnds();
   assert.match(JSON.stringify(ends[0].result),/original failing regression/);
-  assert.equal(ends[1].isError,true);assert.match(JSON.stringify(ends[1].result),/ASTRA_VUE_TITLE_REGRESSION/);
+  assert.equal(ends[1].isError,true,JSON.stringify(ends[1].result).slice(-16000));assert.match(JSON.stringify(ends[1].result),/ASTRA_VUE_TITLE_REGRESSION/);
   assert.match(JSON.stringify(ends[2].result),/outside approved/);
-  assert.equal(ends[3].isError,false);assert.equal(ends[4].isError,false);
+  assert.equal(ends[3].isError,false,JSON.stringify(ends[3].result).slice(-16000));
+  // These are synthetic fixture outputs only; never print unrelated provider
+  // requests or user environment. Diagnose the exact failing stage first.
+  const finalCheck=ends[4];
+  const finalText=(finalCheck.result?.content??[]).filter(c=>c.type==="text").map(c=>c.text).join("\n");
+  console.log("Vue RPC final check (isError="+finalCheck.isError+"):\n"+finalText.slice(-20000));
+  if(finalCheck.isError!==false){
+    // Independent check uses the same repaired candidate with original files
+    // but without the Pi tool layer. Distinguish fixture failure from RPC failure.
+    try{
+      const diagnostic=await f.independentlyVerify(pi.work);
+      console.log("Independent diagnostic status="+diagnostic.status+"\n"+diagnostic.output+"\n"+diagnostic.error);
+    }catch(e){console.log("Independent diagnostic blocked: "+String(e.message).slice(-6000));}
+  }
+  assert.equal(finalCheck.isError,false,"Final approved Vue check must succeed:\n"+finalText.slice(-16000));
   const obs=inspectCalls(pi.events,isVueCheck);assert.ok(obs.modelReproduced&&obs.modelVerified&&obs.reviewToolObserved);
   assert.equal(ends.find(e=>e.toolName==="quality_gate_status").result.details.status,"CHECK_AND_REVIEW_OBSERVED");
   assert.ok(pi.notices().some(n=>n.includes("Astra Quality Gate: CHECK_AND_REVIEW_OBSERVED")));

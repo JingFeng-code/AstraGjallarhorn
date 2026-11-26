@@ -1,31 +1,50 @@
-// Copied into the isolated Vue fixture by its trusted launcher.
-// Run the original locked local executables directly, not npm exec (no fetch).
+// Copied into the isolated fixture by the trusted launcher.
+// Use the same original npm scripts that pass the repository's Vue CI.
+// npm is invoked by its installed CLI path with offline/config isolation.
 import {spawnSync} from "node:child_process";
+import {lstatSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import path from "node:path";
 const cwd=fileURLToPath(new URL(".",import.meta.url));
+const npm=process.env.ASTRA_VUE_NPM_CLI;
 const commands=[
-  ["unit","vitest/vitest.mjs",["run"]],
-  ["lint","eslint/bin/eslint.js",["."]],
-  ["typecheck","vue-tsc/bin/vue-tsc.js",["--noEmit"]],
-  ["build","vite/bin/vite.js",["build"]],
-  ["browser","@playwright/test/cli.js",["test"]]
+  ["unit",["test"]],
+  ["lint",["run","lint"]],
+  ["typecheck",["run","typecheck"]],
+  ["build",["run","build"]],
+  ["browser",["run","test:e2e"]]
 ];
-for(const [label,bin,args] of commands){
-  const run=spawnSync(process.execPath,[path.join(cwd,"node_modules",bin),...args],{
-    cwd,env:{...process.env,CI:"1",NO_COLOR:"1",FORCE_COLOR:"0",PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD:"1",npm_config_offline:"true"},
-    encoding:"utf8",timeout:90000,maxBuffer:4*1024*1024,windowsHide:true
-  });
-  const output=String(run.stdout??"")+"\n"+String(run.stderr??"");
-  process.stdout.write(output);
-  if(run.error){console.error("BLOCKED "+label+": "+run.error.message);process.exit(2);}
-  if(run.status!==0){
-    if(label==="unit"&&run.status===1&&/AssertionError/.test(output)&&output.includes("normalizes leading, trailing, and internal space")){
-      console.log("ASTRA_VUE_TITLE_REGRESSION");
-    }
-    console.log("FAIL: "+label+" ("+run.status+")");
-    process.exit(run.status??2);
+function verify(){
+  if(!npm||!path.isAbsolute(npm)||path.basename(npm)!=="npm-cli.js"||!lstatSync(npm,{throwIfNoEntry:false})?.isFile()){
+    console.error("BLOCKED_NPM_CLI: installed npm CLI not available");return 2;
   }
-  console.log("PASS: "+label);
+  // The existing Vite binary must be present; npm exec must not install a
+  // replacement. The preview command also explicitly sets offline/yes=false.
+  if(!lstatSync(path.join(cwd,"node_modules","vite","bin","vite.js"),{throwIfNoEntry:false})?.isFile()){
+    console.error("BLOCKED_LOCAL_VITE: installed Vite missing");return 2;
+  }
+  for(const [label,args] of commands){
+    const started=Date.now();
+    console.log("START: "+label+" (npm "+args.join(" ")+")");
+    const run=spawnSync(process.execPath,[npm,"--offline","--ignore-scripts","--no-audit","--no-fund","--yes=false",...args],{
+      cwd,env:{...process.env,CI:"1",NO_COLOR:"1",FORCE_COLOR:"0",PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD:"1",npm_config_offline:"true",npm_config_yes:"false"},
+      encoding:"utf8",timeout:90000,maxBuffer:4*1024*1024,windowsHide:true
+    });
+    const output=String(run.stdout??"")+"\n"+String(run.stderr??"");
+    process.stdout.write(output);
+    console.log("END: "+label+" status="+String(run.status)+" signal="+String(run.signal)+" elapsedMs="+(Date.now()-started));
+    if(run.error){console.error("BLOCKED "+label+": "+run.error.message);return 2;}
+    if(run.status!==0){
+      if(label==="unit"&&run.status===1&&/AssertionError/.test(output)&&output.includes("normalizes leading, trailing, and internal space")){
+        console.log("ASTRA_VUE_TITLE_REGRESSION");
+      }
+      console.log("FAIL: "+label+" ("+run.status+")");
+      return run.status??2;
+    }
+    console.log("PASS: "+label);
+  }
+  console.log("PASS: Vue original regression, lint, typecheck, build and browser");
+  return 0;
 }
-console.log("PASS: Vue original regression, lint, typecheck, build and browser");
+// Allow stdout/stderr to drain before exit rather than truncating diagnostics.
+process.exitCode=verify();
