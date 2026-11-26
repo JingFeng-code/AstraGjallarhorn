@@ -77,7 +77,8 @@ try {
     const names = ["architect", "correct", "create-verification-skill"];
     for (const name of names) {
       const source = path.join(skillDir, name, "SKILL.md");
-      assert.match(await readFile(source, "utf8"), /^disable-model-invocation: true$/m);
+      const body = await readFile(source, "utf8");
+      assert.equal(/^disable-model-invocation: true$/m.test(body), name === "create-verification-skill");
       await mkdir(path.join(agent, "skills", name), { recursive: true });
       await cp(source, path.join(agent, "skills", name, "SKILL.md"));
     }
@@ -85,7 +86,7 @@ try {
     for (const name of names) {
       assert(commands.some((command) => command.name === `skill:${name}` && command.source === "skill"));
     }
-    console.log("PASS: Pi discovers three explicit pstack skill commands");
+    console.log("PASS: Pi discovers three pstack skill commands (two model-visible, generator explicit-only)");
   }
   const a = start();
   const b = start();

@@ -1,7 +1,12 @@
 ---
 name: correct
-description: Diagnose and fix a supplied reproducible failure, then verify the existing regression.
-disable-model-invocation: true
+description: Diagnose and repair actual code or runtime failures using reproduction evidence and existing regression checks. Use for actual defects, not ordinary questions.
 ---
 
-Use the failure and file supplied by the user. Inspect the specific file with lowercase read. Correct the root cause with lowercase edit using the exposed schema. Preserve the failing check. For a single-line Better Edit correction, use the same anchor as both anchor_from and anchor_to, and keep all adjacent lines unchanged. Copy the entire target line from after the anchor separator, preserving whitespace and delimiters; change only the offending value. Do not infer the anchor from the line number. Rerun the exact supplied command if bash is available; otherwise report that the independent check is still required. Stop after the fix or after repeating an unresolved failure once. Do not use Write or invent commands.
+# Correct
+
+Read project instructions and relevant code. Use supplied evidence when available; otherwise find a safe documented reproduction or explain what is missing. Trace the affected data and control flow, identify the root cause, and make the smallest correct change within the authorized scope. Preserve existing tests and assertions; add relevant regression coverage when appropriate.
+
+Use the edit tool according to its actual schema. With Better Edit, copy actual anchors from read output; for a one-line replacement use the same anchor for both endpoints, preserve whitespace and adjacent lines, and reread stale anchors.
+
+Rerun the original reproduction and relevant project checks if available and safe. Use real command output and exit status, distinguish local from remote verification, and review the diff. Report limitations honestly. Avoid repeating unchanged failed approaches. Do not install tools, change providers, or deploy without authorization.

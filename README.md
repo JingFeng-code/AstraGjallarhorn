@@ -345,11 +345,11 @@ pwsh -File scripts\verify.ps1
 
 [Vue／TypeScript 驗證範例](examples/vue/README.md)提供 ESLint、vue-tsc、Vitest、Vite 建置及 Playwright 瀏覽器驗證。
 
-Pi 的 `/skill:architect <設計題目>` 比較模組邊界與相依方向。此技能只在明確呼叫時載入。來源為 [pstack 固定版本](https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388/pstack/skills/architect)，MIT 授權隨檔同步。
+Pi 的 `/skill:architect <設計題目>` 比較模組邊界與相依方向。此技能由 Pi 原生按需發現與讀取，也可明確呼叫。來源為 [pstack 固定版本](https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388/pstack/skills/architect)，MIT 授權隨檔同步。
 
 `/skill:create-verification-skill <已實測的命令、工作目錄、成功與失敗退出碼>` 產出可審查的 Markdown 草稿。驗證草稿中的原樣命令後，再存入專案的 `.pi/skills/<name>/SKILL.md`。這是 [pstack](https://github.com/cursor/plugins/tree/41e400932eca14f289e7db717a70455256b6d388/pstack) 的精簡 Pi 適配，使用明確呼叫、相對路徑及實際退出碼，附 MIT 授權。
 
-`/skill:correct <重現命令、失敗證據及目標檔案>` 引導根因修復。使用 Better Edit 替換一行時，把實際的同一錨點放進兩個端點，複製目標行後只改出錯的值。保留既有回歸驗證，並以原命令確認修正。
+`correct` 由 Pi 原生按需發現，亦可透過 `/skill:correct` 明確呼叫，引導根因修復。使用 Better Edit 替換一行時，把實際的同一錨點放進兩個端點，複製目標行後只改出錯的值。保留既有回歸驗證，並以原命令確認修正。
 
 Plan 審查可向 Pi 提供計畫與需求。Diff 審查見下方「Diff Review」：模型用唯讀的 `review_diff` 自行取得 staged／unstaged diff，不再需要手動貼上。
 

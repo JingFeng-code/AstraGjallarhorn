@@ -126,7 +126,7 @@
       "type": "file",
       "source": "agent/skills/architect/SKILL.md",
       "target": "agent/skills/architect/SKILL.md",
-      "note": "pstack architect，僅透過 /skill:architect 載入"
+      "note": "pstack architect，Pi 原生按需發現；仍可手動呼叫"
     },
     {
       "type": "file",
