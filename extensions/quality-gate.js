@@ -33,6 +33,16 @@ export function parseQualityPolicy(raw){
     }
     return {kind:p.kind,check:p.check,failureMarker:p.failureMarker,writable:[source],verifier:project};
   }
+  // v4 is the fixed Vue fixture verifier: unit regression first, then
+  // lint, typecheck, build and browser verification on success.
+  if(p?.version===4){
+    const source="examples/vue/src/title.ts",verifier="examples/vue/verify-contract.mjs";
+    if(p.kind!=="vue-title"||p.check!=="node "+verifier||
+      p.failureMarker!=="ASTRA_VUE_TITLE_REGRESSION"||!Array.isArray(p.writable)||p.writable.length!==1||p.writable[0]!==source){
+      throw Error("Invalid explicit Vue quality contract");
+    }
+    return {kind:p.kind,check:p.check,failureMarker:p.failureMarker,writable:[source],verifier};
+  }
   if(p?.version!==1||typeof p.check!=="string"||!/^node --test [a-zA-Z0-9][a-zA-Z0-9._-]{0,100}\.m?js$/.test(p.check)||
     typeof p.failureMarker!=="string"||!/^[a-zA-Z0-9_]{3,80}$/.test(p.failureMarker)||
     !Array.isArray(p.writable)||p.writable.length!==1||!p.writable.every(isName)||
@@ -48,6 +58,7 @@ export function expectedFailure(policy,text){
     // reproduction of the declared xUnit regression.
     return /Failed[^\r\n]*SavedNoteCanBeLoaded\b/.test(text)&&/Assert\.Equal\(\) Failure/.test(text);
   }
+  if(policy.kind==="vue-title")return /^ASTRA_VUE_TITLE_REGRESSION$/m.test(text.replace(/\r/g,""))&&/AssertionError/.test(text)&&text.includes("normalizes leading, trailing, and internal space");
   return !policy.verifier||text.includes("ERR_ASSERTION");
 }
 export function qualityDecision(state,final){

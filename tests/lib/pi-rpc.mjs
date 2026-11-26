@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 // script: array of steps. step = { text } | { tools: [{name, args}] } | function(requestBody, n) => step
-export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false, real, formal = false, workDir, isolatedHome = false }) {
+export async function startPi({ cli, script, extensions, extraFiles = {}, env = {}, cwdSetup, args = [], baseDir, keep = false, real, formal = false, workDir, isolatedHome = false, promptTimeoutMs }) {
   const cwd = baseDir ?? await mkdtemp(path.join(tmpdir(), "astra-rpc-"));
   const agent = formal ? path.join((await import("node:os")).homedir(), ".pi", "agent") : path.join(cwd, "agent");
   const work = workDir ?? path.join(cwd, "work");
@@ -93,7 +93,7 @@ export async function startPi({ cli, script, extensions, extraFiles = {}, env = 
       const before = events.filter((e) => e.type === "agent_end").length;
       const res = await harness.send("prompt", { message });
       if (!res.success) throw new Error(res.error);
-      if (!message.startsWith("/")) await waitFor(() => events.filter((e) => e.type === "agent_end").length > before, real ? 600000 : 60000, "agent_end");
+      if (!message.startsWith("/")) await waitFor(() => events.filter((e) => e.type === "agent_end").length > before, promptTimeoutMs ?? (real ? 600000 : 60000), "agent_end");
       return res;
     },
     notices: () => events.filter((e) => e.type === "extension_ui_request" && e.method === "notify").map((e) => e.message),

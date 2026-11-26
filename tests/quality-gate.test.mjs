@@ -96,3 +96,11 @@ test("dotnet contract accepts only the declared test and existing implementation
   for(const text of ["error CS0029: SavedNoteCanBeLoaded","error NU1101: SavedNoteCanBeLoaded","Failed Notes.Tests.NoteTests.OtherTest\nAssert.Equal() Failure","SavedNoteCanBeLoaded\nAssert.Equal() Failure"])assert.equal(expectedFailure(parsed,text),false);
   for(const q of [{...p,check:p.check.replace(" --no-restore","")},{...p,check:p.check+" --filter SavedNoteCanBeLoaded"},{...p,check:p.check+" || true"},{...p,writable:["examples/dotnet/NoteTests.cs"]},{...p,failureMarker:"unrelated"}])assert.throws(()=>parseQualityPolicy(JSON.stringify(q)),/Invalid/);
 });
+
+test("Vue contract requires the exact verifier and named assertion failure, not a build or browser error",()=>{
+  const p={version:4,kind:"vue-title",check:"node examples/vue/verify-contract.mjs",failureMarker:"ASTRA_VUE_TITLE_REGRESSION",writable:["examples/vue/src/title.ts"]};
+  const parsed=parseQualityPolicy(JSON.stringify(p));
+  assert.equal(expectedFailure(parsed,"normalizes leading, trailing, and internal space\nAssertionError: expected\nASTRA_VUE_TITLE_REGRESSION\n"),true);
+  for(const t of ["ASTRA_VUE_TITLE_REGRESSION","AssertionError: unrelated\nASTRA_VUE_TITLE_REGRESSION","normalizes leading, trailing, and internal space\nAssertionError"])assert.equal(expectedFailure(parsed,t),false);
+  for(const q of [{...p,check:p.check+" || true"},{...p,writable:["examples/vue/src/title.test.ts"]},{...p,check:"npm test"},{...p,failureMarker:"anything"}])assert.throws(()=>parseQualityPolicy(JSON.stringify(q)),/Invalid/);
+});

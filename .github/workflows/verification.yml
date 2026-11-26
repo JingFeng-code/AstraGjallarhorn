@@ -97,3 +97,15 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: examples/vue
       - run: ./scripts/verify-project.ps1 -Suite vue
+      - name: Vue explicit contract Pi RPC (offline npm cache and Edge)
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'astra-pi-vue'
+          $pin = Get-Content manifests/packages.json -Raw | ConvertFrom-Json
+          npm install --prefix $runtime --ignore-scripts --no-audit --no-fund "$($pin.pi.package)@$($pin.pi.version)"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:npm_config_cache = (npm config get cache).Trim()
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $cli = Join-Path $runtime "node_modules/$($pin.pi.package)/dist/cli.js"
+          node tests/vue-quality-gate-rpc.mjs $cli
+          exit $LASTEXITCODE
