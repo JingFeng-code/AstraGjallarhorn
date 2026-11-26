@@ -157,6 +157,12 @@
       "source": "modes/deep-execution/skills",
       "target": "modes/deep-execution/skills",
       "note": "DeepSeek Stack 7 個 ds-* Skills（不在 Pi 自動掃描目錄）"
+    },
+    {
+      "type": "file",
+      "source": "agent/extensions/verification-evidence.js",
+      "target": "extensions/verification-evidence.js",
+      "note": "觀察原生驗證工具結果及 Git 狀態，不保證完整驗收"
     }
   ],
   "excludeNames": [
