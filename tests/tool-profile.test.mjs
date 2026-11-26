@@ -20,14 +20,14 @@ test("profiles never enable tools omitted at startup and can restore the startin
 });
 
 test("engineering profiles preserve available LSP and review tools; cloud still excludes bash", async () => {
-  const initial = ["read","edit","bash","lsp_diagnostics","review_diff","workflow_begin","other"];
+  const initial = ["read","edit","bash","lsp_diagnostics","review_diff","other"];
   let active = [...initial], invoke;
   register({registerCommand:(_n,{handler})=>invoke=handler,getActiveTools:()=>[...active],setActiveTools:t=>active=t});
   const ctx={ui:{notify(){}}};
   await invoke("local",ctx);
-  assert.deepEqual(active,["read","edit","bash","lsp_diagnostics","review_diff","workflow_begin"]);
+  assert.deepEqual(active,["read","edit","bash","lsp_diagnostics","review_diff"]);
   await invoke("cloud",ctx);
-  assert.deepEqual(active,["read","edit","lsp_diagnostics","review_diff","workflow_begin"]);
+  assert.deepEqual(active,["read","edit","lsp_diagnostics","review_diff"]);
   await invoke("restore",ctx);
   assert.deepEqual(active,initial);
 });

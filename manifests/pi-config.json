@@ -157,12 +157,6 @@
       "source": "modes/deep-execution/skills",
       "target": "modes/deep-execution/skills",
       "note": "DeepSeek Stack 7 個 ds-* Skills（不在 Pi 自動掃描目錄）"
-    },
-    {
-      "type": "file",
-      "source": "agent/extensions/workflow.js",
-      "target": "extensions/workflow.js",
-      "note": "Pi 自然語言工作流選擇與工具證據狀態（非強制品質關卡）"
     }
   ],
   "excludeNames": [
