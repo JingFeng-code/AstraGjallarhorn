@@ -6,7 +6,7 @@ const readFile = async (p, enc) => lf(await readRaw(p, enc));
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { applyRestore, createCheckpoint, listCheckpoints, planRestore, renderPlan, repoRootOf, worktreeIdentity, selectPreviewCandidates } from "../extensions/checkpoint.js";
+import { applyRestore, createCheckpoint, listCheckpoints, planRestore, renderPlan, repoRootOf, worktreeIdentity, selectPreviewCandidates, checkedPath } from "../extensions/checkpoint.js";
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8" });
 const exists = (p) => access(p).then(() => true, () => false);
@@ -145,4 +145,27 @@ test("model preview excludes active, partial, unknown and other-worktree checkpo
     await rm(linked,{recursive:true,force:true});
     await rm(root,{recursive:true,force:true});
   }
+});
+
+test("restore refuses a stale plan even when force is requested",async()=>{
+  const root=await fixture();
+  try{
+    const cp=await createCheckpoint(root,{phase:"pre"});
+    await writeFile(path.join(root,"a.txt"),"agent\n");
+    await createCheckpoint(root,{id:cp.id,phase:"post"});
+    const plan=await planRestore(root,cp.id);
+    await writeFile(path.join(root,"a.txt"),"newer user edit\n");
+    await assert.rejects(applyRestore(root,plan,{force:true}),/stale/);
+    assert.equal(await readFile(path.join(root,"a.txt"),"utf8"),"newer user edit\n");
+  }finally{await rm(root,{recursive:true,force:true});}
+});
+test("unsafe paths and linked parents are rejected",async()=>{
+  const root=await fixture();
+  const outside=await mkdtemp(path.join(tmpdir(),"astra-outside-"));
+  try{
+    for(const p of ["../outside.txt",".git/config","dir/../a.txt","C:/test"])await assert.rejects(checkedPath(root,p),/Unsafe/);
+    const {symlink}=await import("node:fs/promises");
+    await symlink(outside,path.join(root,"linked"),process.platform==="win32"?"junction":"dir");
+    await assert.rejects(checkedPath(root,"linked/a.txt"),/Linked|Reparse/);
+  }finally{await rm(root,{recursive:true,force:true});await rm(outside,{recursive:true,force:true});}
 });

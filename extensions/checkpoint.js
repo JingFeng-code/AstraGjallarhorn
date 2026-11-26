@@ -4,7 +4,7 @@
 // stash and working files are never touched by a snapshot. Restore is path-scoped to what
 // the task itself changed and refuses to overwrite anything modified by someone else.
 import { execFile } from "node:child_process";
-import { mkdir, writeFile, rm, stat, unlink, readdir, readFile } from "node:fs/promises";
+import { mkdir, writeFile, rm, lstat, unlink, readdir, readFile, rename } from "node:fs/promises";
 import { randomBytes, createHash } from "node:crypto";
 import { realpath } from "node:fs/promises";
 import path from "node:path";
@@ -113,9 +113,36 @@ async function blobAt(root, rev, file) {
   try { return (await git(root, ["rev-parse", `${rev}:${file}`])).trim(); } catch { return undefined; }
 }
 
-async function worktreeBlob(root, file) {
-  try { await stat(path.join(root, file)); } catch { return undefined; }
-  try { return (await git(root, ["hash-object", "--", file])).trim(); } catch { return undefined; }
+// Best-effort path validation, not a lock against concurrent filesystem writers.
+export async function checkedPath(root, file) {
+  const segments=String(file).split("/");
+  if(segments.some(p=>!p||p==="."||p===".."||p.toLowerCase()===".git"||/[\\:\x00-\x1f]/.test(p)||
+      (process.platform==="win32"&&(/[<>*?"|]|[. ]$/.test(p)||/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(p)))))
+    throw Error("Unsafe checkpoint path: "+file);
+  let abs=await realpath(root), missing=false, st;
+  for(let i=0;i<segments.length;i++){
+    abs=path.join(abs,segments[i]);st=undefined;
+    if(missing)continue;
+    try{st=await lstat(abs);}catch(e){if(e.code==="ENOENT"){missing=true;continue;}throw e;}
+    if(st.isSymbolicLink()||(i<segments.length-1?!st.isDirectory():!st.isFile()||st.nlink>1))
+      throw Error("Linked or non-regular checkpoint path: "+file);
+    const actual=await realpath(abs);
+    const norm=p=>process.platform==="win32"?p.toLowerCase():p;
+    if(norm(actual)!==norm(abs))throw Error("Reparse or aliased checkpoint path: "+file);
+  }
+  return {abs,exists:!missing,stat:st};
+}
+async function worktreeBlob(root,file){
+  const checked=await checkedPath(root,file);
+  if(!checked.exists)return undefined;
+  return (await git(root,["hash-object","--",file])).trim();
+}
+async function regularTreeEntry(root,rev,file){
+  const entry=await git(root,["--literal-pathspecs","ls-tree","-z",rev,"--",file]);
+  if(!entry)return undefined;
+  const match=/^(100644|100755) blob [0-9a-f]+\t/.exec(entry);
+  if(!match)throw Error("Checkpoint includes unsupported file mode: "+file);
+  return match[1];
 }
 
 // Plan restoring the changes a task made, between its pre and post snapshots.
@@ -124,6 +151,7 @@ export async function planRestore(root, id) {
   const cp = refs.find((c) => c.id === id);
   if (!cp) throw new Error(`Unknown checkpoint ${id}`);
   if (!cp.pre) throw new Error(`Checkpoint ${id} has no pre snapshot`);
+  if (cp.worktree && cp.worktree !== await worktreeIdentity(root)) throw Error("Checkpoint belongs to another worktree");
   const pre = cp.pre;
   // Without a post snapshot (task still running or interrupted) the task's own changes are
   // whatever differs from pre right now.
@@ -142,7 +170,7 @@ export async function planRestore(root, id) {
     if (preBlob && taskBlob) kind = "restore-content";
     else if (!preBlob && taskBlob) kind = "delete-created";
     else kind = "recreate-deleted";
-    actions.push({ path: change.path, kind, preBlob, external, currentExists: current !== undefined });
+    actions.push({ path: change.path, kind, preBlob, external, currentExists: current !== undefined, currentBlob: current, taskBlob });
   }
   // Everything that differs between the post snapshot and now but was not part of the task.
   const nowTree = await snapshotTree(root);
@@ -163,25 +191,43 @@ export function renderPlan(plan) {
 }
 
 export async function applyRestore(root, plan, { force = false } = {}) {
-  const safety = await createCheckpoint(root, { id: `${plan.id}-before-restore`, phase: "safety", label: "automatic backup taken before restore" });
-  const done = [];
-  const skipped = [];
-  // Read every old version first: if any cannot be read (e.g. a nested repository stored as a
-  // gitlink) nothing is written, so a restore is never left half applied.
-  const todo = [];
-  for (const a of plan.actions) {
-    if (a.external && !force) { skipped.push(a.path); continue; }
-    if (a.kind === "delete-created") { todo.push({ a }); continue; }
-    try { todo.push({ a, bytes: await git(root, ["cat-file", "--filters", `${plan.pre}:${a.path}`], { binary: true }) }); }
-    catch (error) { throw new Error(`Cannot restore ${a.path} (${String(error.stderr || error.message).trim().slice(0, 120)}); nothing was changed. Safety checkpoint ${safety.id} exists.`); }
+  const done=[], skipped=[], todo=[];
+  // Validate all planned writes and read originals before touching working files.
+  for(const a of plan.actions){
+    if(a.external&&!force){skipped.push(a.path);continue;}
+    await checkedPath(root,a.path);
+    if(await worktreeBlob(root,a.path)!==a.currentBlob)throw Error("Restore plan is stale: "+a.path);
+    const preMode=await regularTreeEntry(root,plan.pre,a.path);
+    const postMode=plan.post?await regularTreeEntry(root,plan.post,a.path):undefined;
+    if(preMode&&postMode&&preMode!==postMode)throw Error("File mode changes require manual review: "+a.path);
+    const bytes=a.kind==="delete-created"?undefined:await git(root,["cat-file","--filters",plan.pre+":"+a.path],{binary:true});
+    todo.push({a,bytes});
   }
-  for (const { a, bytes } of todo) {
-    const abs = path.join(root, a.path);
-    if (bytes === undefined) await unlink(abs).catch(() => {});
-    else { await mkdir(path.dirname(abs), { recursive: true }); await writeFile(abs, bytes); }
-    done.push(a.path);
-  }
-  return { safety: safety.id, done, skipped };
+  if(!todo.length)return {done,skipped,safety:null};
+  const base=plan.id+"-before-restore";
+  const existing=await listCheckpoints(root);
+  const safetyId=existing.some(c=>c.id===base)?base+"-"+randomBytes(4).toString("hex"):base;
+  const safety=await createCheckpoint(root,{id:safetyId,phase:"safety",label:"automatic backup taken before restore"});
+  try{
+    for(const {a,bytes} of todo){
+      const checked=await checkedPath(root,a.path);
+      if(await worktreeBlob(root,a.path)!==a.currentBlob)throw Error("Restore plan became stale: "+a.path);
+      if(bytes===undefined){await unlink(checked.abs);}
+      else{
+        await mkdir(path.dirname(checked.abs),{recursive:true});
+        const again=await checkedPath(root,a.path);
+        if(await worktreeBlob(root,a.path)!==a.currentBlob)throw Error("Restore plan became stale: "+a.path);
+        const temp=path.join(path.dirname(again.abs),".astra-restore-"+randomBytes(8).toString("hex"));
+        try{
+          await writeFile(temp,bytes,{flag:"wx",mode:again.stat?.mode??0o644});
+          if(await worktreeBlob(root,a.path)!==a.currentBlob)throw Error("Restore plan became stale: "+a.path);
+          await rename(temp,again.abs);
+        }finally{await rm(temp,{force:true}).catch(()=>{});}
+      }
+      done.push(a.path);
+    }
+  }catch(e){throw Error("Restore stopped after "+done.length+" completed file(s); inspect actual state. Safety checkpoint "+safety.id+". "+String(e.message).slice(0,240));}
+  return {safety:safety.id,done,skipped};
 }
 
 // Other live Pi processes with a running task in the same work tree. Uses a marker per process
@@ -210,7 +256,8 @@ export async function clearActive(root) {
 
 async function prune(root) {
   const all = await listCheckpoints(root);
-  const auto = all.filter((c) => !c.id.endsWith("-before-restore"));
+  const identity = await worktreeIdentity(root);
+  const auto = all.filter((c) => c.worktree === identity && !c.safety && c.post);
   for (const c of auto.slice(0, Math.max(0, auto.length - KEEP))) {
     for (const phase of ["pre", "post", "safety"]) await git(root, ["update-ref", "-d", `${REF_ROOT}/${c.id}/${phase}`]).catch(() => {});
   }
