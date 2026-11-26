@@ -72,6 +72,19 @@ jobs:
           dotnet-version: '10.0.401'
       - run: dotnet restore examples/dotnet/Notes.Tests.csproj --locked-mode
       - run: ./scripts/verify-project.ps1 -Suite dotnet
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+      - name: .NET explicit contract Pi RPC (offline cached packages)
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'astra-pi-dotnet'
+          $pin = Get-Content manifests/packages.json -Raw | ConvertFrom-Json
+          npm install --prefix $runtime --ignore-scripts --no-audit --no-fund "$($pin.pi.package)@$($pin.pi.version)"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $cli = Join-Path $runtime "node_modules/$($pin.pi.package)/dist/cli.js"
+          node tests/dotnet-quality-gate-rpc.mjs $cli
+          exit $LASTEXITCODE
   vue:
     runs-on: windows-latest
     steps:

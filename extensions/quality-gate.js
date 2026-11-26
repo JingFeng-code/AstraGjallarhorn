@@ -23,6 +23,16 @@ export function parseQualityPolicy(raw){
     }
     return {check:p.check,failureMarker:p.failureMarker,writable:[source],kind:p.kind,verifier:p.check.slice(5)};
   }
+  // v3 deliberately permits only the checked-in .NET storage repair recipe.
+  // No implicit restore, custom project, filter, extra arguments or shell chain.
+  if(p?.version===3){
+    const source="examples/dotnet/Storage/NoteStore.cs",project="examples/dotnet/Notes.Tests.csproj";
+    if(p.kind!=="dotnet-note-store"||p.check!=="dotnet test "+project+" --no-restore"||
+      p.failureMarker!=="SavedNoteCanBeLoaded"||!Array.isArray(p.writable)||p.writable.length!==1||p.writable[0]!==source){
+      throw Error("Invalid explicit .NET quality contract");
+    }
+    return {kind:p.kind,check:p.check,failureMarker:p.failureMarker,writable:[source],verifier:project};
+  }
   if(p?.version!==1||typeof p.check!=="string"||!/^node --test [a-zA-Z0-9][a-zA-Z0-9._-]{0,100}\.m?js$/.test(p.check)||
     typeof p.failureMarker!=="string"||!/^[a-zA-Z0-9_]{3,80}$/.test(p.failureMarker)||
     !Array.isArray(p.writable)||p.writable.length!==1||!p.writable.every(isName)||
@@ -30,6 +40,15 @@ export function parseQualityPolicy(raw){
     throw Error("Invalid explicit quality contract; this pilot accepts one existing source file and one standalone Node test command.");
   }
   return {check:p.check,failureMarker:p.failureMarker,writable:[...p.writable]};
+}
+export function expectedFailure(policy,text){
+  if(typeof text!=="string"||!text.includes(policy.failureMarker))return false;
+  if(policy.kind==="dotnet-note-store"){
+    // A compiler, restore, infrastructure or unrelated test failure is not
+    // reproduction of the declared xUnit regression.
+    return /Failed[^\r\n]*SavedNoteCanBeLoaded\b/.test(text)&&/Assert\.Equal\(\) Failure/.test(text);
+  }
+  return !policy.verifier||text.includes("ERR_ASSERTION");
 }
 export function qualityDecision(state,final){
   if(!state||!final||state.invalid||state.pending)return "UNKNOWN_OR_BLOCKED";
@@ -123,7 +142,7 @@ export function registerQualityGate(pi,Type,policy,fingerprint=worktreeFingerpri
       if(p.kind==="check"){
         if(!active.edits){
           const text=(e.result?.content??[]).filter(c=>c.type==="text").map(c=>c.text).join("\n");
-          if(e.isError===true&&text.includes(policy.failureMarker)&&(!policy.verifier||text.includes("ERR_ASSERTION"))){active.reproduced=true;active.last=after;}
+          if(e.isError===true&&expectedFailure(policy,text)){active.reproduced=true;active.last=after;}
         }else{
           active.check=e.isError===false?after:null;
         }

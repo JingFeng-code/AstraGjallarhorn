@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parseQualityPolicy,qualityDecision,registerQualityGate,allowedEdit} from "../extensions/quality-gate.js";
+import {parseQualityPolicy,qualityDecision,registerQualityGate,allowedEdit,expectedFailure} from "../extensions/quality-gate.js";
 const p={version:1,check:"node --test pricing.test.mjs",failureMarker:"ERR_ASSERTION",writable:["pricing.mjs"]};
 test("explicit narrow policy only; absent policy inactive; reject shell chains and test edits",()=>{
   assert.equal(parseQualityPolicy(undefined),null);
@@ -86,4 +86,13 @@ test("nested approved migration permits exact file only, not an outside same-nam
     await symlink(outside,path.join(root,"linked"),process.platform==="win32"?"junction":"dir");
     assert.equal(await allowedEdit(root,{path:"linked/migration.sql"},{writable:["linked/migration.sql"]}),false);
   }finally{await rm(base,{recursive:true,force:true,maxRetries:3});}
+});
+
+test("dotnet contract accepts only the declared test and existing implementation scope",()=>{
+  const p={version:3,kind:"dotnet-note-store",check:"dotnet test examples/dotnet/Notes.Tests.csproj --no-restore",failureMarker:"SavedNoteCanBeLoaded",writable:["examples/dotnet/Storage/NoteStore.cs"]};
+  const parsed=parseQualityPolicy(JSON.stringify(p));
+  assert.equal(parsed.verifier,"examples/dotnet/Notes.Tests.csproj");
+  assert.equal(expectedFailure(parsed,"Failed Notes.Tests.NoteTests.SavedNoteCanBeLoaded [2 ms]\nAssert.Equal() Failure: Values differ"),true);
+  for(const text of ["error CS0029: SavedNoteCanBeLoaded","error NU1101: SavedNoteCanBeLoaded","Failed Notes.Tests.NoteTests.OtherTest\nAssert.Equal() Failure","SavedNoteCanBeLoaded\nAssert.Equal() Failure"])assert.equal(expectedFailure(parsed,text),false);
+  for(const q of [{...p,check:p.check.replace(" --no-restore","")},{...p,check:p.check+" --filter SavedNoteCanBeLoaded"},{...p,check:p.check+" || true"},{...p,writable:["examples/dotnet/NoteTests.cs"]},{...p,failureMarker:"unrelated"}])assert.throws(()=>parseQualityPolicy(JSON.stringify(q)),/Invalid/);
 });
