@@ -28,7 +28,7 @@
     {
       "scenario": "busy-receiver",
       "failed": 4,
-      "handoffNotice": "Handoff failed: receiver is working, not idle. Summary kept at C:\\Users\\Jing\\.pi\\agent\\handoffs\\2026-11-25T19-25-01-320Z-6bcafb4e073d9cc9.md",
+      "handoffNotice": "Handoff failed: receiver is working, not idle. Summary kept at <LOCAL_HANDOFF_PATH>",
       "handoffMessageDelivered": false,
       "receiverTurnBefore": 0,
       "receiverTurnAfter": 0
@@ -36,7 +36,7 @@
     {
       "scenario": "missing-receiver",
       "failed": 3,
-      "handoffNotice": "Handoff failed: receiver t15w not found ({\"error\":{\"hint\":\"see `hc ls --all`\",\"kind\":\"not_found\",\"message\":\"no terminal \\\"t15w\\\"\"}}). Summary kept at C:\\Users\\Jing\\.pi\\agent\\handoffs\\2026-11-25T19-25-24-563Z-340bd03cce209f4d.md",
+      "handoffNotice": "Handoff failed: receiver t15w not found ({\"error\":{\"hint\":\"see `hc ls --all`\",\"kind\":\"not_found\",\"message\":\"no terminal \\\"t15w\\\"\"}}). Summary kept at <LOCAL_HANDOFF_PATH>",
       "summaryKept": true
     },
     {

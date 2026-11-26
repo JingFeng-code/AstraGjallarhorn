@@ -1,5 +1,15 @@
 # AstraGjallarhorn
 
+[English](README.en.md) | 繁體中文
+
+> **v0.3 開發預覽／公開準備候選。** 本分支尚未正式發布，原始儲存庫仍為私人；請勿將個人 Pi 匯出資料推送到未完成審查的公開儲存庫。
+
+AstraGjallarhorn 是 Pi Coding Agent 的驗證優先工程工具組，提供可攜設定、指令防護、Checkpoint、任務恢復、差異審查及明確授權的品質關卡。以自然語言交付任務，不要求手動切換角色。v0.3 的品質關卡預設關閉，僅在可信啟動器給定明確契約的合成試點中驗證。
+
+**發展狀態：** Node.js、SQLite、C#／.NET、Vue／TypeScript 四個固定修復案例已通過腳本化 CI 與一個本機模型驗收；跨層 Vue → ASP.NET Core → 暫存 SQLite fixture 已通過 CI，但尚未完成跨層模型驗收。EF Core、正式資料庫、任意專案與模型皆未獲認證。詳見 [v0.3 工程驗證](docs/v0.3-autonomous-engineering.md) 與 [跨層範例](examples/fullstack/README.md)。
+
+**安全與公開界線：** [SECURITY.md](SECURITY.md) · [第三方授權](THIRD_PARTY_NOTICES.md) · [公開前準備](docs/open-source-readiness.md)。公開候選只可包含已審查的通用工具及範例；私人同步資料與原始日誌必須保留於私人儲存庫或本機。以下同步操作手冊仍適用於個人私人 checkout，不是公開匯出流程。
+
 ## 名稱由來｜Astra Mythos 神器系列
 
 GitHub 儲存庫為 [JingFeng-code/AstraGjallarhorn](https://github.com/JingFeng-code/AstraGjallarhorn)。
@@ -10,15 +20,15 @@ GitHub 儲存庫為 [JingFeng-code/AstraGjallarhorn](https://github.com/JingFeng
 - **實際產品定位**：Pi Coding Agent 的受控跨電腦設定同步。
 - **技術相容性**：`pi-config` 路徑及指令、備份與安全規則維持不變。
 
-**全系列命名規範的唯一維護來源**：[Astra Mythos｜神器系列品牌規範](https://github.com/JingFeng-code/AstraLore/blob/main/06-%E5%8F%83%E8%80%83/Astra-Mythos/ASTRA_MYTHOS.md)，位於工程筆記庫 AstraLore；本專案不另存品牌規範副本。
+Astra Mythos 為系列命名規範；品牌管理筆記不屬於公開發行內容。
 
 ---
 
 Pi Agent 的可攜設定同步專案：把「跨電腦可重建」的設定放進 Git，憑證與機器狀態永遠留在本機。
 
-- 來源電腦：Windows + Pi Agent 1.6.0（`@earendil-works/pi-coding-agent`）
+- v0.3 候選環境：Windows + Pi Agent 1.6.1（`@earendil-works/pi-coding-agent`）；以 manifest 為準
 - 目標：多台 Windows 電腦以「匯出 → Git → 套用 → 驗證」的受控單向流程同步
-- 目前階段：v0.2。單向同步（不做自動覆寫、不做雙向合併），另含 LSP、安全防護、Checkpoint、任務恢復、交接與 Diff Review，見第 11 節
+- 以下為 v0.2 基礎操作說明，v0.3 尚未發布。單向同步（不做自動覆寫、不做雙向合併），另含 LSP、安全防護、Checkpoint、任務恢復、交接與 Diff Review，見第 11 節
 
 ---
 
@@ -75,7 +85,7 @@ Pi 若設定了 `PI_CODING_AGENT_DIR`，請以 `-PiHome` 指定實際的 Pi 家�
 | 作業系統 | Windows 10/11 |
 | PowerShell | 7.x（`pwsh`）或 Windows PowerShell 5.1，兩者皆已實測 |
 | Git | 2.x，且已設定 `user.name` / `user.email` |
-| Pi Agent | 與 `manifests/packages.json` 的 `pi.compatible` 相符（本次在 Windows 實測 `1.6.0`） |
+| Pi Agent | 與 `manifests/packages.json` 的 `pi.compatible` 相符（本候選釘選 `1.6.1`；v0.2 手冊歷史測試使用 `1.6.0`） |
 | Node.js | Pi 可執行即可（不需要另外安裝套件） |
 | Pi 套件 | `pi-agnes-tools`、`pi-ollama-cloud`（固定版號，見 `manifests/packages.json`） |
 
@@ -85,11 +95,11 @@ Pi 若設定了 `PI_CODING_AGENT_DIR`，請以 `-PiHome` 指定實際的 Pi 家�
 
 ## 3. 電腦 B 首次安裝
 
-以下假設儲存庫已存在於 GitHub Private，且 `pi` 已可執行。
+以下為私人同步流程，假設使用者的同步儲存庫保持 GitHub Private，且 `pi` 已可執行。請先核對 remote；勿將 `export.ps1` 產生的個人資料提交到公開上游。
 
 ```powershell
 # 1) 取得儲存庫（僅複製，不動既有設定）
-git clone https://github.com/JingFeng-code/AstraGjallarhorn.git "$HOME\Documents\pi-config"
+git clone <YOUR_PRIVATE_SYNC_REPO_URL> "$HOME\Documents\pi-config"
 cd "$HOME\Documents\pi-config"
 
 # 2) 先看計畫，不寫入
@@ -148,7 +158,7 @@ git commit -m "sync: <說明這次改了什麼>"
 git push
 ```
 
-`export.ps1` 不會執行任何 git 指令，Push 永遠是人工決定。
+`export.ps1` 不會執行任何 git 指令，Push 永遠是人工決定。即使掃描未命中也不保證無敏感資料；在 `git push` 前確認 remote 為自己的私人同步儲存庫，不要推送 `refs/astra/checkpoints/*`，不要使用 `git push --mirror`。
 
 ### 電腦 B（套用端）
 
@@ -286,7 +296,7 @@ pwsh -File scripts\verify.ps1
 4. 不跟隨來源的符號連結 / Junction（`export.ps1` 遇到即中止）。
 5. `apply.ps1` 預設 Dry Run；衝突預設停止。
 6. 不升級 Pi 核心，不安裝未在 `manifests/packages.json` 列出的套件。
-7. 儲存庫必須是 **Private**。
+7. **個人設定同步與匯出儲存庫必須是 Private**；公開發行僅包含經審查的通用原始碼與合成範例，不得將私人 checkout 的匯出結果、原始工作紀錄、checkpoint refs 或完整 Git 歷史鏡像到公開上游。
 8. 本專案不影響 Claude Code、Codex、OpenCode、Herdr 的設定（只操作 `$HOME\.pi` 下的白名單路徑）。
 
 ---
@@ -305,6 +315,8 @@ pwsh -File scripts\verify.ps1
 ---
 
 ## 10. 授權與來源
+
+專案整體授權尚待權利人確認；目前不宣稱第一方程式碼已授予 MIT 授權。保留第三方 MIT 版權及授權，不以根目錄候選授權取代。見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 - `modes/deep-execution/skills/ds-*`：來自 [deepseek-stack](https://github.com/aicodeking/deepseek-stack)（MIT），
   匯入 `main` 提交 `d4f1ebe72e8314c3a0c6135bb82f623c650f7218`（2026-10-28）。
