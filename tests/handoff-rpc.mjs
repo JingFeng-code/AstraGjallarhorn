@@ -40,11 +40,10 @@ const quiet = await startPi({
 });
 try {
   await writeFile(stateFile, JSON.stringify({ address: "t9", cwd: quiet.work, agent: "opencode", status: "idle", turn: 0 }));
-  await quiet.prompt("/retry-limit on");
   await quiet.prompt("verify");
   await new Promise((r) => setTimeout(r, 1500));
   assert.equal(quiet.requests.length, 3);
   assert.ok(!quiet.notices().some((n) => n.startsWith("Handoff ")));
   assert.equal(JSON.parse(await readFile(stateFile, "utf8")).sent, undefined);
-  console.log("PASS handoff: disabled by default, manual handoff only");
+  console.log("PASS: default identical-call limit stops; handoff remains disabled");
 } finally { await quiet.close(); }

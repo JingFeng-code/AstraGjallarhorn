@@ -313,7 +313,7 @@ pwsh -File scripts\verify.ps1
 
 ## 工程驗證範例
 
-`/retry-limit on` 在同一回合第三次相同失敗工具呼叫後中止。若同一工具反覆用不同參數失敗，可明確選擇 `/retry-limit strict`，在同工具連續第三次失敗時中止。Strict 也會計入連續的故障注入，需保留測試時請先關閉。`/retry-limit status` 查詢，`/retry-limit off` 關閉。設定隨 Session 保留，沒有設定的新 Session 預設關閉，每次新回合重置計數。
+`/retry-limit on` 在同一回合第三次相同失敗工具呼叫後中止。若同一工具反覆用不同參數失敗，可明確選擇 `/retry-limit strict`，在同工具連續第三次失敗時中止。Strict 也會計入連續的故障注入，需保留測試時請先關閉。`/retry-limit status` 查詢，`/retry-limit off` 關閉。設定隨 Session 保留，沒有設定的新 Session 預設 `on`（相同失敗第三次停止，仍可明確關閉），每次新回合重置計數。
 
 `/retry-limit handoff` 取出這個 Session 最近的停止摘要，供手動交接。摘要只包含工具、停止原因和呼叫 ID。擴充功能監聽 Pi 的工具執行事件，涵蓋已驗證的不存在工具錯誤及 shell 非零退出碼。
 
@@ -402,7 +402,7 @@ v0.2 把下列能力加入正式 Pi。全部是第一方擴充功能（`extensio
 
 ### Herdr 自動交接
 
-預設關閉，需要 `/retry-limit on`（或 `strict`）搭配。`/handoff-auto on t12 --no-extra-cost` 先檢查接收者存在、活著、閒置、工作目錄與目前相同，記錄它的 Agent 種類，再啟用。第三次符合條件的失敗讓 Pi 停止後：寫摘要檔到 `~/.pi/agent/handoffs/`（任務、失敗呼叫、git 狀態、Checkpoint），用 `hc send <terminal> "<短指令>" --if idle` 通知接收者，並確認接收者的狀態變為 working 或 turn 增加才算接收。摘要與送出前會遮罩常見祕密（Bearer／Basic、`sk-`、GitHub／AWS／Slack 金鑰、JWT、URL 內的帳密、`password=`／`--token` 類參數、私鑰區塊）；遮罩是樣式比對，無法保證涵蓋所有格式。任何一步失敗都保留摘要並停止，**不重試**。
+自動交接預設關閉；Retry Limit 預設 `on`，也可明確設定 `strict`。`/handoff-auto on t12 --no-extra-cost` 先檢查接收者存在、活著、閒置、工作目錄與目前相同，記錄它的 Agent 種類，再啟用。第三次符合條件的失敗讓 Pi 停止後：寫摘要檔到 `~/.pi/agent/handoffs/`（任務、失敗呼叫、git 狀態、Checkpoint），用 `hc send <terminal> "<短指令>" --if idle` 通知接收者，並確認接收者的狀態變為 working 或 turn 增加才算接收。摘要與送出前會遮罩常見祕密（Bearer／Basic、`sk-`、GitHub／AWS／Slack 金鑰、JWT、URL 內的帳密、`password=`／`--token` 類參數、私鑰區塊）；遮罩是樣式比對，無法保證涵蓋所有格式。任何一步失敗都保留摘要並停止，**不重試**。
 
 `--no-extra-cost` 是你對接收者不產生額外費用的聲明；擴充功能無法從 hc 得知計費，只在送出前確認接收者的 Agent 種類沒有被換掉。防止重複：每次失敗只送一次（帳本在互斥鎖內以原子方式先記錄「送出中」，多個 Pi 程序同時觸發也只有一個通過，崩潰後也不重送）；同一接收者 2 分鐘內有送出中的交接時不再送；接收者的任務若帶有交接標記則不會再交接（防循環）；每小時最多 3 次。不修改 Herdr、hc 或其他 Agent 的設定。
 

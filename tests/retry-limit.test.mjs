@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import register from "../extensions/retry-limit.js";
 
-test("opt-in stops at three identical errors and resets for a new run", async () => {
+test("explicit off, default identical limit, and strict stops at three identical errors and resets for a new run", async () => {
   const hooks = new Map();
   let entries = [];
   let notification;
@@ -25,6 +25,13 @@ test("opt-in stops at three identical errors and resets for a new run", async ()
     hooks.get("tool_execution_end")({ ...call, isError }, ctx);
   };
   const first = { path: "missing", offset: 1 };
+  hooks.get("session_start")({}, ctx);
+  await command("status", ctx);
+  assert.equal(notification, "Retry limit on");
+  await command("off", ctx);
+  hooks.get("session_start")({}, ctx);
+  await command("status", ctx);
+  assert.equal(notification, "Retry limit off");
   for (let i = 0; i < 3; i++) result(first);
   assert.equal(aborts, 0);
   await command("on", ctx);
@@ -61,5 +68,8 @@ test("opt-in stops at three identical errors and resets for a new run", async ()
   entries = [];
   hooks.get("session_start")({}, ctx);
   await command("status", ctx);
-  assert.equal(notification, "Retry limit off");
+  assert.equal(notification, "Retry limit on");
+  hooks.get("agent_start")();
+  result(first); result(first); result(first);
+  assert.equal(aborts, 4);
 });

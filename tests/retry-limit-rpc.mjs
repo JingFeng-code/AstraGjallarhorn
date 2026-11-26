@@ -75,7 +75,7 @@ try {
       if (event.message.startsWith("Retry limit stopped")) notice = event.message;
       const level = event.level ?? event.notifyType;
       if (level === "info" && event.message.includes("3 consecutive failures")) send("4", "new_session");
-      if (event.message === "Retry limit off") {
+      if (event.message === "Retry limit on") {
         clearTimeout(timer);
         resolve();
       }
@@ -85,7 +85,7 @@ try {
   assert.equal(count, 3);
   assert.equal(errors, 3);
   assert.match(notice, /stopped bash after 3 consecutive failures/);
-  console.log("PASS: strict mode survives reload, stops after three different shell errors, saves handoff, and resets in a new session");
+  console.log("PASS: strict mode survives reload, stops after three different shell errors, saves handoff, and defaults to identical-call limit in a new session");
 } finally {
   output.close();
   if (child.exitCode === null && child.signalCode === null) {

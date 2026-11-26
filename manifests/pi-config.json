@@ -54,7 +54,7 @@
       "type": "file",
       "source": "agent/extensions/retry-limit.js",
       "target": "extensions/retry-limit.js",
-      "note": "Pi 選用的相同失敗工具呼叫上限"
+      "note": "Pi 相同失敗工具呼叫上限（預設開啟，不自動交接）"
     },
     {
       "type": "file",

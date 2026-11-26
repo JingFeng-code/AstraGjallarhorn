@@ -3,7 +3,7 @@ const HANDOFF_ENTRY = "astragjallarhorn-retry-handoff";
 const policies = ["on", "strict", "off"];
 
 export default function (pi) {
-  let policy = "off";
+  let policy = "on";
   const failures = new Map();
   const calls = new Map();
   const argsById = new Map();
@@ -12,7 +12,7 @@ export default function (pi) {
   let consecutive = 0;
 
   pi.registerCommand("retry-limit", {
-    description: "Limit tool failures per run. Usage: on|strict|off|status|handoff",
+    description: "Limit tool failures per run (identical failures on by default). Usage: on|strict|off|status|handoff",
     async handler(args, ctx) {
       const option = args.trim() || "status";
       if (option === "handoff") {
@@ -35,7 +35,7 @@ export default function (pi) {
   pi.on("session_start", (_event, ctx) => {
     const entry = ctx.sessionManager.getEntries().findLast((item) =>
       item.type === "custom" && item.customType === POLICY_ENTRY);
-    policy = policies.includes(entry?.data?.policy) ? entry.data.policy : "off";
+    policy = policies.includes(entry?.data?.policy) ? entry.data.policy : "on";
   });
 
   pi.on("agent_start", () => {
