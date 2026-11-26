@@ -109,3 +109,13 @@ jobs:
           $cli = Join-Path $runtime "node_modules/$($pin.pi.package)/dist/cli.js"
           node tests/vue-quality-gate-rpc.mjs $cli
           exit $LASTEXITCODE
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.401'
+      - name: Full-stack browser HTTP SQLite fixture fault injection
+        shell: pwsh
+        run: |
+          $env:npm_config_cache = (npm config get cache).Trim()
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/fullstack-fixture.mjs
+          exit $LASTEXITCODE
