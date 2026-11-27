@@ -1,53 +1,32 @@
-# AGENTS.md
+# Agent guidance
 
-## 優先順序
-- 工作目錄中最近的 `AGENTS.md` 優先於本檔。
-- 任務有指定輸出格式（JSON、patch、表格等）時，照那個格式。
-- 專案專屬的指令與慣例放在該專案的 `AGENTS.md`。
+This file is synchronized as generic project guidance. Keep user-specific preferences, private work history, credentials, and local paths outside the public repository.
 
-## 溝通
-- 說明與回報使用繁體中文；程式碼、指令、路徑、識別字保持原文。
-- 先講結論，再給必要細節。
-- 需要我決定時，給 2–3 個選項（A/B/C），再請我選。
-- 除非我要求，不要給 Roadmap、工具清單、學習地圖或長篇框架。
-- 不要建議重整筆記或專案結構。
-- 除非我主動提起，不要談學位、投資、健康等個人話題。
-- 我說「沒有進步」時，用具體證據回應，不要空泛安慰。
-- 不要叫我讀英文原文；用字塊與真實錯誤訊息解釋名詞。
+## Product behavior
 
-## 環境
-- 執行指令前先確認 OS 與 shell。
-- Windows：使用可用的 Git Bash 或 PowerShell。macOS／Linux：使用使用者的 shell。
-- 不要假設套件管理器、工具或路徑；以專案文件為準。
-- 專案沒有指令說明時，讀 README、套件 manifest、Makefile 或 CI 設定。
-- 路徑盡量用相對路徑或 `~`；不要寫死使用者的絕對路徑。
-- 使用可用的搜尋工具；沒有 `rg`／`fd` 時，用 `grep`／`find`。
-- 未經同意，不要安裝工具或依賴。
+- Keep the single-agent interaction natural-language driven. Do not add role selection, a router, fixed workflow choices, or required slash commands.
+- Use the existing Pi tools, Skills, modes, and repository conventions. Do not change the model, provider, permissions, or enable cross-agent handoff without explicit authorization.
+- Treat review and analysis requests as read-only by default. Before writing, confirm the target and scope from the request and available evidence.
+- Keep changes small and directly tied to the request. Do not refactor unrelated code or add speculative options.
+- Preserve existing behavior and test expectations. Never weaken or edit an original test to obtain a pass.
 
-## 執行方式
-- 先讀相關檔案與專案指示，簡短盤點後完成授權範圍。
-- 不要為了形式停下來等核准。只有真正的 blocker 才停：
-  - 破壞性或不可逆的操作
-  - 資料庫 schema 或 migration
-  - public API／契約變更
-  - 身分驗證、授權或正式環境設定
-  - 機密
-  - 業務規則或 null 語意未知，且會改變行為
-- 不要擴大範圍；不要改不相關的檔案。
-- 做最小正確修改；不要加想像中的抽象層。
-- 同一個做法失敗兩次，換策略，不要重複。
-- 修改後看 diff，確認沒有範圍外的修改。
+## Environment and safety
 
-## 驗證與回報
-- 使用專案文件記載的 test、typecheck、lint、build 指令；不要自己發明指令。
-- 分開回報：
-  - 已確認／推測／未確認
-  - 已執行測試／未執行／需手動檢查／未覆蓋風險
-- 附上實際執行的指令與關鍵輸出。
-- 沒跑過的測試、沒看過的 log、未驗證的結果，不能說成完成。
+- Check the operating system and shell before running commands. Follow the repository's documented commands and pinned versions; do not assume tools or paths.
+- Use relative paths or environment variables in examples. Never put a workstation-specific absolute path in tracked files.
+- Do not read or write credential stores, private keys, tokens, or authentication files. If a secret is encountered, do not print or copy it.
+- Scripts and packages run with the current user's permissions. They are not an operating-system sandbox.
+- Do not trigger paid services, cloud CI, deployment, or external writes unless explicitly requested.
 
-## 安全
-- 不讀寫 `.env`、憑證、token、私鑰或 auth 檔；看到也不要複述。
-- 未經明確同意，不 commit、不 push、不部署、不改正式環境設定。
-- 預設不要讀整個 repo 或筆記庫；只讀任務需要的部分。
-- 高風險工作使用 container 或 sandbox；本檔不是權限邊界。
+## Recovery and verification
+
+- Natural-language recovery may inspect only an interrupted task in the current working directory. Continue only when the candidate is unique and after the user confirms transferring its request and tool summary to the current model.
+- Recovery must reread the record and verify current state. It must not rerun commands or restore files automatically.
+- Checkpoint Preview is read-only. Actual restore requires an explicit user action and must preserve newer changes.
+- Report only verification that was actually observed. Unknown, stale, or missing evidence is not a pass.
+- When changing code, use the documented unit, RPC, synchronization, SQL, .NET, Vue, and full-stack checks as applicable. If a check cannot run, state why and leave it unverified.
+- After the final source change, rerun relevant checks and inspect the final diff. Keep test data synthetic and local.
+
+## Response
+
+Provide concise Traditional Chinese findings with changed files, executed commands, observed results, and remaining limits. Ask only when a critical ambiguity, permission boundary, privacy decision, or material risk prevents safe progress.

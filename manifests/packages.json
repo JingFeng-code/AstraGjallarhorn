@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "pi": {
     "package": "@earendil-works/pi-coding-agent",
-    "version": "1.5.2",
-    "compatible": "1.5.x"
+    "version": "1.6.1",
+    "compatible": "1.6.1"
   },
   "packages": [
     {
@@ -17,9 +17,42 @@
       "version": "0.13.1",
       "pin": "npm:pi-ollama-cloud@0.13.1",
       "source": "npm:pi-ollama-cloud"
+    },
+    {
+      "name": "pi-better-edit",
+      "version": "2.21.0",
+      "pin": "npm:pi-better-edit@2.21.0",
+      "source": "npm:pi-better-edit"
     }
   ],
   "excluded": [
     "pi-profile-switch（Windows 相容性問題，已改用 extensions/mode-switch.ts，不安裝）"
-  ]
+  ],
+  "lsp": {
+    "installDir": "agent/lsp",
+    "packages": [
+      {
+        "name": "typescript",
+        "version": "5.9.3"
+      },
+      {
+        "name": "typescript-language-server",
+        "version": "6.1.0"
+      }
+    ],
+    "installCommand": "npm install --prefix \"$env:USERPROFILE/.pi/agent/lsp\" --ignore-scripts --save-exact --no-audit --no-fund typescript@5.9.3 typescript-language-server@6.1.0",
+    "csharp": {
+      "server": "Microsoft.CodeAnalysis.LanguageServer.dll (Roslyn Language Server) bundled with the Microsoft C# VS Code extension ms-dotnettools.csharp",
+      "tested": {
+        "extension": "2.160.4-win32-x64",
+        "serverProductVersion": "5.12.0-1.26452.1+e42c0e42e89e41522593d0816707e71781ecbee2",
+        "dllSha256": "6519CF410A2DB56487B2D65275361307A61DD2822EF7635D8A2044913371D80A",
+        "authenticodeSigner": "CN=.NET, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "dotnetSdk": "10.0.401",
+        "runtime": "Microsoft.NETCore.App 10.0.12"
+      },
+      "discovery": "~/.vscode/extensions/ms-dotnettools.csharp-*/.roslyn (highest version) or env ASTRA_ROSLYN_LS",
+      "policy": "Never downloaded by Pi. A different extension version is accepted but untested: confirm with tests/lsp-cs.test.mjs. Server must have a valid Authenticode signature."
+    }
+  }
 }

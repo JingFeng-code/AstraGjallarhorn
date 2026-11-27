@@ -649,6 +649,12 @@ function Get-SettingsPackages {
     return @($packages)
 }
 
+function Get-PackageSource {
+    param($Entry)
+    if ($Entry -is [string]) { return $Entry }
+    return [string](Get-Prop $Entry 'source' '')
+}
+
 function ConvertTo-PackageName {
     <# 'npm:pi-agnes-tools@0.3.7' -> 'pi-agnes-tools' #>
     param([string]$Spec)

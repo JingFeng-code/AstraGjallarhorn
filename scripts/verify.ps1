@@ -66,6 +66,7 @@ function New-TempModeAgentDir {
     New-Item -ItemType Directory -Path (Join-Path $agentDir 'extensions') -Force | Out-Null
     New-Item -ItemType Directory -Path $workDir -Force | Out-Null
     [System.IO.File]::Copy($ModeSwitchPath, (Join-Path $agentDir 'extensions/mode-switch.ts'), $true)
+    Copy-Item -LiteralPath (Join-Path $repo 'modes') -Destination (Join-Path $root 'modes') -Recurse
     Write-JsonFile -Path (Join-Path $agentDir 'mode-state.json') -Object ([ordered]@{ mode = $Mode })
     $script:tempRoots += $root
     return [pscustomobject]@{ Root = $root; AgentDir = $agentDir; WorkDir = $workDir }
@@ -79,7 +80,7 @@ function Test-ModeDiscovery {
         [string[]]$RequiredSkills
     )
     $sandbox = New-TempModeAgentDir -ModeSwitchPath $ModeSwitchPath -Mode $Mode -Label $Mode
-    $commands = Invoke-PiGetCommands -AgentDir $sandbox.AgentDir -UserHome $UserHome -WorkingDirectory $sandbox.WorkDir
+    $commands = Invoke-PiGetCommands -AgentDir $sandbox.AgentDir -UserHome $sandbox.WorkDir -WorkingDirectory $sandbox.WorkDir
     $skillNames = @(Get-SkillCommandNames -Commands $commands)
     $dsSkills = @($skillNames | Where-Object { $_.StartsWith('ds-') } | Sort-Object)
     $hasModeCommand = @($commands | Where-Object { (Get-Prop $_ 'name') -eq 'mode' -and (Get-Prop $_ 'source') -eq 'extension' }).Count -gt 0
@@ -116,7 +117,7 @@ try {
     Write-Section '1. Pi 版本相容性'
     $packagesPath = Join-Path $repo 'manifests/packages.json'
     if (-not (Test-Path -LiteralPath $packagesPath -PathType Leaf)) {
-        throw '儲存庫缺少 manifests/packages.json，請先執行 export.ps1。'
+        throw '儲存庫缺少 manifests/packages.json，請先確認版本控制中的 manifest；私人設定匯出請依操作指南指定已查核的私人目的地。'
     }
     $packagesManifest = Read-JsonFile $packagesPath
     $piInfo = Get-Prop $packagesManifest 'pi'
@@ -127,7 +128,7 @@ try {
     if ($null -eq $currentVersion) {
         Add-Result -Name 'Pi 版本讀取' -Status 'FAIL' -Detail '無法執行 pi --version'
     } else {
-        $compatibleOk = $true
+        $compatibleOk = $currentVersion -ceq $compatible
         if ($compatible -match '^(\d+)\.(\d+)\.x$') {
             $compatibleOk = $currentVersion.StartsWith(('{0}.{1}.' -f $Matches[1], $Matches[2]))
         }
@@ -179,15 +180,23 @@ try {
     }
 
     $packageItems = @(Get-Prop $packagesManifest 'packages' @())
-    $configuredPackages = @(Get-SettingsPackages $pi | ForEach-Object { ConvertTo-PackageName ([string]$_) })
+    $configuredPackages = @(Get-SettingsPackages $pi | ForEach-Object { Get-PackageSource $_ })
     $packageProblems = @()
     foreach ($pkg in $packageItems) {
         $name = [string](Get-Prop $pkg 'name' '')
         $version = [string](Get-Prop $pkg 'version' '')
         if ([string]::IsNullOrWhiteSpace($name)) { continue }
-        if ($configuredPackages -notcontains $name) {
+        $sources = @($configuredPackages | Where-Object { $_ -clike 'npm:*' -and (ConvertTo-PackageName $_) -ceq $name })
+        $pin = "npm:${name}@${version}"
+        if ($sources.Count -eq 0) {
             $packageProblems += ("$name 未在 settings.json packages 中")
-            continue
+        } elseif ($sources.Count -gt 1) {
+            $packageProblems += ("$name 在 settings.json 重複宣告")
+        } elseif ($sources[0] -cne $pin) {
+            $packageProblems += ("$name 的 settings.json 來源未固定為 $pin")
+        }
+        if ((Get-Prop $pkg 'pin') -cne $pin) {
+            $packageProblems += ("$name 的 manifest pin 與宣告版本不一致")
         }
         $installed = Get-InstalledPackageVersion $pi $name
         if ($null -eq $installed) {
@@ -200,6 +209,42 @@ try {
         Add-Result -Name 'Pi 套件' -Status 'FAIL' -Detail ($packageProblems -join '；')
     } else {
         Add-Result -Name 'Pi 套件' -Status 'PASS' -Detail (($packageItems | ForEach-Object { "{0}@{1}" -f (Get-Prop $_ 'name'), (Get-Prop $_ 'version') }) -join ', ')
+    }
+
+    $lspSpec = Get-Prop $packagesManifest 'lsp'
+    if ($lspSpec) {
+        $lspProblems = @()
+        foreach ($pkg in @(Get-Prop $lspSpec 'packages' @())) {
+            $pkgJson = Join-Path $pi ("{0}/node_modules/{1}/package.json" -f (Get-Prop $lspSpec 'installDir' 'agent/lsp'), (Get-Prop $pkg 'name'))
+            if (-not (Test-Path -LiteralPath $pkgJson -PathType Leaf)) { $lspProblems += ("{0} 未安裝" -f (Get-Prop $pkg 'name')); continue }
+            $have = [string](Get-Content -LiteralPath $pkgJson -Raw | ConvertFrom-Json).version
+            if ($have -ne [string](Get-Prop $pkg 'version')) { $lspProblems += ("{0} 版本 {1}（要求 {2}）" -f (Get-Prop $pkg 'name'), $have, (Get-Prop $pkg 'version')) }
+        }
+        if ($lspProblems.Count -gt 0) {
+            Add-Result -Name 'TypeScript LSP 伺服器' -Status 'WARN' -Detail ((($lspProblems) -join '；') + '。安裝：' + [string](Get-Prop $lspSpec 'installCommand'))
+        } else {
+            Add-Result -Name 'TypeScript LSP 伺服器' -Status 'PASS' -Detail 'typescript 與 typescript-language-server 版本符合固定值'
+        }
+        $roslyn = $null
+        if ($env:ASTRA_ROSLYN_LS -and (Test-Path -LiteralPath $env:ASTRA_ROSLYN_LS)) { $roslyn = Get-Item -LiteralPath $env:ASTRA_ROSLYN_LS }
+        else {
+            $extRoot = Join-Path $HOME '.vscode/extensions'
+            if (Test-Path -LiteralPath $extRoot) {
+                $roslyn = Get-ChildItem -LiteralPath $extRoot -Directory -Filter 'ms-dotnettools.csharp-*' -ErrorAction SilentlyContinue |
+                    Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName '.roslyn/Microsoft.CodeAnalysis.LanguageServer.dll' } |
+                    Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1 | ForEach-Object { Get-Item -LiteralPath $_ }
+            }
+        }
+        if (-not $roslyn) {
+            Add-Result -Name 'C# LSP 伺服器' -Status 'WARN' -Detail '找不到 Roslyn Language Server（安裝 Microsoft C# VS Code 擴充功能或設定 ASTRA_ROSLYN_LS）；C# LSP 工具會回報 NOT FOUND，其餘功能不受影響'
+        } else {
+            $sig = (Get-AuthenticodeSignature -LiteralPath $roslyn.FullName).Status
+            $tested = [string](Get-Prop (Get-Prop (Get-Prop $lspSpec 'csharp') 'tested') 'dllSha256')
+            $hash = (Get-FileHash -LiteralPath $roslyn.FullName -Algorithm SHA256).Hash
+            if ($sig -ne 'Valid') { Add-Result -Name 'C# LSP 伺服器' -Status 'FAIL' -Detail ("簽章狀態 {0}：{1}" -f $sig, $roslyn.FullName) }
+            elseif ($hash -eq $tested) { Add-Result -Name 'C# LSP 伺服器' -Status 'PASS' -Detail '簽章有效，與已測版本雜湊一致' }
+            else { Add-Result -Name 'C# LSP 伺服器' -Status 'WARN' -Detail ("簽章有效，但版本與已測不同（{0}）；請執行 tests/lsp-cs.test.mjs 確認相容" -f $roslyn.VersionInfo.ProductVersion) }
+        }
     }
 
     # --------------------------------------------------------- 4/5/6. 模式
