@@ -151,3 +151,9 @@ The full-stack fixture uses temporary Vue, ASP.NET Core API, and SQLite syntheti
 ### Security and limits
 
 This project is not an OS sandbox. Scripts and third-party packages run with the current user's privileges; tests use synthetic data only. Do not add API keys, tokens, private sessions, company data, or raw private acceptance output to the public repository. Actions remain disabled; local validation does not require cloud CI. The tooling does not guarantee zero cost; check provider and model charges before using them.
+
+### 自動交接紀錄異常 / Handoff ledger reconciliation
+
+交接紀錄無法讀取、格式錯誤或鎖無法取得時，停止派工，不重建空紀錄、不自動搶鎖。自動交接維持預設關閉。若程序異常中止，操作者先停用自動交接、確認所有持有者程序及接收端狀態、保存 ledger.json 和 ledger.lock，對帳未確認的交接；只有確定沒有執行中或結果未知的交接且沒有持有者時，才由操作者處理遺留鎖。不可僅依鎖檔年齡或 PID 就重送。
+
+If the ledger cannot be read or validated, or a lock cannot be acquired, dispatch is blocked. Do not replace ambiguous evidence with an empty ledger or steal a lock. Disable automatic handoff first, check all owner processes and receiver state, preserve the ledger and lock, and reconcile unknown outcomes before operator recovery. Never resend based solely on lock age or PID.

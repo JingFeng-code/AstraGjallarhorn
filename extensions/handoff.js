@@ -4,7 +4,7 @@
 // existing `hc` CLI, to that receiver. Nothing in Herdr, hc or the receiving agent is configured.
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile, open, stat, unlink, rename } from "node:fs/promises";
+import { mkdir, readFile, writeFile, open, unlink, rename } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -58,13 +58,22 @@ export function validateReceiver(desc, { cwd, selfSession, expectedAgent }) {
 }
 
 async function readLedger(file) {
-  try { const parsed = JSON.parse(await readFile(file, "utf8")); return Array.isArray(parsed.entries) ? parsed : { entries: [] }; } catch { return { entries: [] }; }
+  let raw;
+  try { raw = await readFile(file, "utf8"); }
+  catch (error) { if (error.code === "ENOENT") return { entries: [] }; throw error; }
+  const parsed = JSON.parse(raw);
+  if (!parsed || !Array.isArray(parsed.entries) || parsed.entries.some((e) =>
+    !e || typeof e.key !== "string" || !e.key || !Number.isFinite(e.at) ||
+    typeof e.target !== "string" || !e.target || typeof e.file !== "string" || !e.file ||
+    !["sending", "rejected", "send-failed", "received", "unconfirmed"].includes(e.status))) {
+    throw new Error("Invalid handoff ledger; preserve it for operator reconciliation.");
+  }
+  return parsed;
 }
 
-const pidAlive = (pid) => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch (error) { return error.code === "EPERM"; } };
-
-// Serialises every read-modify-write of the ledger across Pi processes (exclusive lock file,
-// stale locks from dead processes are taken over) and writes atomically.
+// Serialises ledger updates across Pi processes (exclusive lock file) and writes atomically.
+// Never steal an existing lock based on its age or PID: an ambiguous owner requires
+// operator reconciliation before any further dispatch.
 export async function withLedger(dir, fn) {
   const lock = path.join(dir, "ledger.lock");
   const file = path.join(dir, "ledger.json");
@@ -77,10 +86,7 @@ export async function withLedger(dir, fn) {
       break;
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
-      const info = await stat(lock).catch(() => undefined);
-      const owner = Number(await readFile(lock, "utf8").catch(() => "0"));
-      if (info && (Date.now() - info.mtimeMs > 15_000 || (owner && !pidAlive(owner)))) { await unlink(lock).catch(() => {}); continue; }
-      if (Date.now() > deadline) throw new Error("handoff ledger is locked by another process");
+      if (Date.now() > deadline) throw new Error("handoff ledger is locked; operator reconciliation required");
       await new Promise((r) => setTimeout(r, 40));
     }
   }
@@ -150,7 +156,9 @@ export async function performHandoff({ config, failure, ctxInfo, runHc = hcRunne
   const file = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, "-")}-${key}.md`);
   // Claim the failure atomically before anything is sent, so concurrent Pi processes cannot both pass.
   // Recording "sending" first also means a crash or timeout leaves an unknown outcome that is never re-sent.
-  const claim = await withLedger(dir, (ledger) => {
+  let claim;
+  try {
+    claim = await withLedger(dir, (ledger) => {
     const prior = ledger.entries.find((e) => e.key === key && e.status !== "rejected");
     if (prior) return { blocked: `this failure was already handed off (${prior.status}); not sending again` };
     const now = Date.now();
@@ -158,7 +166,10 @@ export async function performHandoff({ config, failure, ctxInfo, runHc = hcRunne
     if (ledger.entries.some((e) => e.target === config.target && e.status === "sending" && e.at > now - 120_000)) return { blocked: "another handoff to this receiver is being sent right now" };
     ledger.entries.push({ key, at: now, target: config.target, file, status: "sending" });
     return { ok: true };
-  });
+    });
+  } catch {
+    return result("blocked", "Handoff ledger unavailable; preserve the ledger and lock for operator reconciliation. No dispatch was attempted.");
+  }
   if (claim.blocked) return result("blocked", claim.blocked);
   const setStatus = (status) => withLedger(dir, (ledger) => { const e = ledger.entries.find((x) => x.key === key); if (e) e.status = status; });
 

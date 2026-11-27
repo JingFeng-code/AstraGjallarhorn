@@ -146,3 +146,20 @@ test("different failures to the same busy-sending receiver are serialised", asyn
     assert.ok(outcomes.filter((o) => o.status === "received").length <= 1, JSON.stringify(outcomes.map((o) => o.status)));
   } finally { await rm(s.dir, { recursive: true, force: true }); }
 });
+
+test("unreadable or invalid ledger is preserved and blocks dispatch", async () => {
+  for (const raw of ["{", "null", '{"entries":null}', '{"entries":[{}]}']) {
+    const s = await setup();
+    try {
+      const first = await run(s);
+      assert.equal(first.status, "received");
+      const file = path.join(s.handoffs, "ledger.json");
+      await writeFile(file, raw);
+      const out = await run(s);
+      assert.equal(out.status, "blocked");
+      assert.match(out.detail, /ledger unavailable/);
+      assert.equal(await readFile(file, "utf8"), raw, "do not overwrite ambiguous evidence");
+      assert.equal((await s.log()).filter((l) => l.cmd === "send").length, 1);
+    } finally { await rm(s.dir, { recursive: true, force: true }); }
+  }
+});
