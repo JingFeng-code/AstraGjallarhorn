@@ -177,7 +177,8 @@ export class LspClient {
         try {
           const report = await this.request("textDocument/diagnostic", { textDocument: { uri }, ...(identifier ? { identifier } : {}) }, timeout);
           if (report?.kind === "full" && Array.isArray(report.items)) items.push(...report.items);
-          else if (report?.kind !== "unchanged") complete = false;
+          // This client sends no previousResultId and cannot reuse an unchanged report.
+          else complete = false;
         } catch (error) { complete = false; this.log(`pull diagnostics failed: ${error.message}`); }
       }
       if (!complete) return { source: "pull", version, diagnostics: undefined };

@@ -44,3 +44,11 @@ test("malformed full diagnostic reports are inconclusive", async () => {
   const result = await client.diagnose("/workspace/main.ts", "typescript");
   assert.equal(result.diagnostics, undefined);
 });
+
+test("unchanged pull diagnostics without a previous result are inconclusive", async () => {
+  const client = clientWithPullProviders(async (_method, params) =>
+    params.identifier === "syntax" ? { kind: "full", items: [] } : { kind: "unchanged", resultId: "previous" });
+
+  const result = await client.diagnose("/workspace/main.ts", "typescript");
+  assert.equal(result.diagnostics, undefined);
+});
