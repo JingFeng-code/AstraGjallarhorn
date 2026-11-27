@@ -21,13 +21,16 @@ try {
   await first.crash(); // hard kill: no agent_end, no shutdown hooks
 } catch (error) { await first.crash().catch(() => {}); throw error; }
 
-const second = await startPi({ cli: piCli(), extensions, baseDir: base, keep: true, script: [{ text: "continuing after verification" }] });
+const second = await startPi({ cli: piCli(), extensions, baseDir: base, keep: true, script: [
+  { tools: [{ name: "bash", args: { command: "echo two > b.txt" } }] },
+  { tools: [{ name: "bash", args: { command: "node ./slow.js" } }] },
+] });
 try {
   await second.waitFor((e) => e.type === "extension_ui_request" && String(e.message).includes("Unfinished task"), 15000, "recovery notice");
   const notice = second.notices().find((n) => n.includes("Unfinished task"));
   assert.match(notice, /1 calls completed, 1 outcome-unknown/);
   const id = notice.match(/task (\S+) found/)[1];
-  await second.prompt("/task resume");
+  second.send("prompt", { message: "/task resume" }).catch(() => {});
   await second.waitFor(() => second.requests.length >= 1, 30000, "resume request");
   const sent = JSON.stringify(second.requests[0].messages);
   assert.match(sent, /astra-resume/);
@@ -35,17 +38,33 @@ try {
   assert.match(sent, /node slow\.js/);
   assert.match(sent, /may have changed state/);
   assert.match(sent, /Never re-run it blindly/);
-  await second.waitFor((e) => e.type === "agent_end", 30000, "agent_end");
-  await second.prompt("/task resume");
-  await second.prompt("/task resume " + id);
-  await new Promise((r) => setTimeout(r, 800));
-  assert.ok(second.notices().some((n) => /already continued|nothing to resume/.test(n)), "second resume refused");
-  assert.equal(second.requests.length, 1, "no duplicate dispatch");
+  await second.waitFor((e) => e.type === "tool_execution_start" && JSON.stringify(e.args).includes("./slow.js"), 30000, "second slow tool start");
+  await new Promise((r) => setTimeout(r, 500));
+  await second.crash();
   const journal = JSON.parse(await readFile(path.join(base, "agent", "tasks", `${id}.json`), "utf8"));
   assert.equal(journal.status, "interrupted");
   assert.match(journal.resumedBy, /pid/);
-  console.log("PASS task recovery: killed Pi detected, safe resume prompt, no duplicate continuation");
-} finally { await second.close(); await rm(base, { recursive: true, force: true }); }
+} catch (error) { await second.crash().catch(() => {}); throw error; }
+
+const third = await startPi({ cli: piCli(), extensions, baseDir: base, keep: true, script: [{ text: "continuing after verification" }] });
+try {
+  await third.waitFor((e) => e.type === "extension_ui_request" && String(e.message).includes("Unfinished task"), 15000, "second recovery notice");
+  const notice = third.notices().find((n) => n.includes("Unfinished task"));
+  assert.match(notice, /2 calls completed, 2 outcome-unknown/);
+  const id = notice.match(/task (\S+) found/)[1];
+  await third.prompt("/task resume");
+  await third.waitFor(() => third.requests.length >= 1, 30000, "second resume request");
+  const sent = JSON.stringify(third.requests[0].messages);
+  for (const item of ["create a.txt then run the slow deploy", "echo one > a.txt", "echo two > b.txt", "node slow.js", "node ./slow.js"]) {
+    assert.ok(sent.includes(item), `missing inherited context: ${item}`);
+  }
+  await third.waitFor((e) => e.type === "agent_end", 30000, "second resume agent_end");
+  await third.prompt("/task resume " + id);
+  await third.waitFor(() => third.notices().some((n) => /already continued/.test(n)), 5000, "duplicate refusal");
+  assert.ok(third.notices().some((n) => /already continued/.test(n)), "duplicate resume refused");
+  assert.equal(third.requests.length, 1, "no duplicate dispatch");
+  console.log("PASS task recovery: two killed Pi processes, inherited original request and tool outcomes, duplicate continuation refused");
+} finally { await third.close(); await rm(base, { recursive: true, force: true }); }
 
 // Timeout: the task is cancelled, journalled as timeout, and its child process tree is gone.
 import { execFileSync } from "node:child_process";
